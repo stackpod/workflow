@@ -1,0 +1,16 @@
+---
+workflows:
+- name: example.jinja.simple.2
+  description: Workflow two just to demonstrate jinja template parsing
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: jinja2
+    setvars:
+      body: "Dear {{firstName|capitalize}} {{lastName|capitalize}}"
+      # Will return "John Doe"
+  - name: testing
+    assert:
+      body: Dear John Doe

@@ -1,0 +1,57 @@
+---
+workflows:
+- name: example.jinja.simple.3
+  description: Workflow to demonstrate toJson
+  actions:
+  - name: start
+    setvars:
+      params:
+        user: myname
+        scheme: dark
+        values:
+        - allow
+        - deny
+        - null
+        - false
+  - name: jinja2
+    setvars:
+      jparams: "{{ params | toJson }}"
+      # Will return "John Doe"
+  - name: testing
+    assert:
+      jparams: '{"params":{"user":"myname","scheme":"dark","values":["allow","deny",null,false]}}'
+
+- name: example.jinja.simple.4
+  description: Workflow to demonstrate dumping all values to a variable
+  actions:
+  - name: start
+    setvars:
+      params:
+        user: myname
+        scheme: dark
+        values:
+        - allow
+        - deny
+        - null
+        - false
+  - name: jinja2
+    setvars:
+      debug: "{{ $_all | dump | safe }}"
+      # Will return "John Doe"
+  - name: testing
+    assert:
+      debug: '{"params":{"user":"myname","scheme":"dark","values":["allow","deny",null,false]}}'
+
+- name: example.jinja.simple.5
+  description: Workflow to demonstrate if and for loops with jinja2
+  actions:
+  - name: start
+    setvars:
+      mylist: [1, 2, 3, 4]
+      mylist_concatenated: >
+        {%- for i in mylist -%}
+          {% if loop.last %}{{ i }}{% else %}{{ i }},{% endif %}
+        {%- endfor -%}
+  - name: testing
+    assert:
+      mylist_concatenated: "1,2,3,4"

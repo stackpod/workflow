@@ -1,0 +1,18 @@
+---
+workflows:
+- name: example.jinja.simple.1
+  description: Workflow one just to demonstrate jinja template parsing
+  actions:
+  - name: start
+    setvars:
+      base_url: https://example.com/api/example
+      params:
+        user: myname
+        scheme: dark
+  - name: jinja1
+    setvars:
+      url: "{{ base_url | url_params(params) }}"
+      # Will return "https://example.com/api/example?user=myname&scheme=dark"
+  - name: testing
+    assert:
+      url: "https://example.com/api/example?user=myname&scheme=dark"
