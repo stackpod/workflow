@@ -19,7 +19,95 @@ properties:
         description:
           description: Description of the workflow
           type: string
-        actions:
+        newactions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            anyOf:
+              - properties:
+                  name: { type: "string" }
+                  setvars: { type: "object" }
+                type: object
+                required: [ "name", "setvars" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  setstate: { type: "object" }
+                type: object
+                required: [ "name", "setstate" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  conditionals: { type: "object" }
+                type: object
+                required: [ "name", "conditionals" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  error: { type: "object" }
+                type: object
+                required: [ "name", "error" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  alt: { type: "object" }
+                type: object
+                required: [ "name", "alt" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  end: { type: "object" }
+                type: object
+                required: [ "name", "end" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  abort: { type: "object" }
+                type: object
+                required: [ "name", "abort" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  workflow: { type: "string" }
+                  args: { type: "object" }
+                  store: { type: "string" }
+                  timeout: { type: "number" }
+                type: object
+                required: [ "name", "workflow" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  sleep: { type: "number" }
+                type: object
+                required: [ "name", "sleep" ]
+              - properties:
+                  name: { type: "string" }
+                  python: { type: "string" }
+                  args: { type: "object" }
+                  store: { type: "string" }
+                  timeout: { type: "number" }
+                type: object
+                required: [ "name", "python" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  js: { type: "string" }
+                  args: { type: "object" }
+                  store: { type: "string" }
+                  timeout: { type: "number" }
+                type: object
+                required: [ "name", "js" ]
+                additionalProperties: false
+              - properties:
+                  name: { type: "string" }
+                  traverse: { type: "object" }
+                  store: { type: "string" }
+                  timeout: { type: "number" }
+                type: object
+                required: [ "name", "traverse" ]
+                additionalProperties: false
+        oldactions:
           type: array
           minItems: 1
           items:
@@ -30,13 +118,119 @@ properties:
                 type: string
               setvars:
                 type: object
+              setstate:
+                type: object
+              workflow:
+                type: string
+              error:
+                type: object
+              alt:
+                type: object
+              end:
+                type: object
+              abort:
+                type: object
+              sleep:
+                type: object
+              python:
+                type: object
+              js:
+                type: object
+              traverse:
+                type: object
               assert:
+                type: object
+              store:
+                type: string
+              args:
                 type: object
             anyOf:
             - required: [ "name", "setvars" ]
+            - required: [ "name", "setstate" ]
+            - required: [ "name", "workflow" ]
+            - required: [ "name", "error" ]
+            - required: [ "name", "alt" ]
+            - required: [ "name", "end" ]
+            - required: [ "name", "abort" ]
+            - required: [ "name", "sleep" ]
+            - required: [ "name", "python" ]
+            - required: [ "name", "js" ]
+            - required: [ "name", "traverse" ]
             - required: [ "name", "assert" ]
             additionalProperties: false
-            maxProperties: 2
+            maxProperties: 4
+        actions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            unevaluatedProperties: false
+            properties:
+              name:
+                description: Name of this specific action. Optional.
+                type: string
+            required: [ "name" ]
+            oneOf:
+            - type: object
+              properties:
+                setvars: { "type": "object" }
+              required: [ "setvars" ]
+            - type: object
+              properties:
+                setstate: { "type": "object" }
+              required: [ "setstate" ]
+            - type: object
+              properties:
+                workflow: { "type": "string" }
+                args: { "type": "object" }
+                store: { "type": "string" }
+                timeout: { "type": "number" }
+              required: [ "workflow" ]
+            - type: object
+              properties:
+                error: { "type": "object" }
+              required: [ "error" ]
+            - type: object
+              properties:
+                alt: { "type": "object" }
+              required: [ "alt" ]
+            - type: object
+              properties:
+                end: { "type": "object" }
+              required: [ "end" ]
+            - type: object
+              properties:
+                abort: { "type": "object" }
+              required: [ "abort" ]
+            - type: object
+              properties:
+                sleep: { "type": "number" }
+              required: [ "sleep" ]
+            - type: object
+              properties:
+                python: { "type": "object" }
+                args: { "type": "object" }
+                store: { "type": "string" }
+                timeout: { "type": "number" }
+              required: [ "python" ]
+            - type: object
+              properties:
+                js: { "type": "object" }
+                args: { "type": "object" }
+                store: { "type": "string" }
+                timeout: { "type": "number" }
+              required: [ "js" ]
+            - type: object
+              properties:
+                traverse: { "type": "object" }
+                args: { "type": "object" }
+                store: { "type": "string" }
+                timeout: { "type": "number" }
+              required: [ "traverse" ]
+            - type: object
+              properties:
+                assert: { "type": "object" }
+              required: [ "assert" ]
       required:
       - name
       - actions

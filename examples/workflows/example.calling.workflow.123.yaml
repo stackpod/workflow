@@ -1,0 +1,46 @@
+---
+workflows:
+- name: example.called.workflow.1
+  description: This is the called workflow
+  actions:
+  - name: start
+    setvars:
+      params:
+        user: myname
+        scheme: dark
+  result:
+    params: "{{ params  | toJson }}"
+
+- name: example.calling.workflow.2
+  description: This is the calling workflow
+  actions:
+  - name: set vars
+    setvars:
+      user: they
+  - name: calling workflow 1
+    workflow: example.called.workflow.1
+    store: result
+  - name: testing the result
+    assert:
+      user: they
+      $expressions:
+      - >-
+        {{ result.params == '{"user":"myname","scheme":"dark"}' }}
+
+- name: example.calling.workflow.3
+  description: Calls an non existent workflow
+  actions:
+  - name: calling workflow 1
+    workflow: example.calling.workflow.12
+    store: result
+  - name: Alt check
+    alt:
+      ok: ok
+    store: result2
+  - name: testing the result
+    assert:
+      result2: ok
+      $expressions:
+      - >-
+        {% set regexp = r/ERROR/ %}
+        {{ regexp.test($error) }}

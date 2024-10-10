@@ -6,7 +6,7 @@ import { evalJinja } from "./expressions/jinja.js"
 import { evalJq } from "./expressions/jq.js"
 import { evalPython } from "./expressions/python.js"
 import { evalJavascript } from "./expressions/javascript.js"
-import { assertAction } from "./actions/assert.js"
+import { assertEqualsAction, assertExprAction } from "./actions/assert.js"
 import { handleResult } from "./actions/result.js"
 import * as crypto from "node:crypto"
 import { altAction } from "./actions/alt.js"
@@ -53,8 +53,12 @@ const initState = (st, wfs) => ({
 
   // workflow specific
   workspace: null,
+  workspaceName: "",
   workflowName: "",
-  ended: false
+  ended: false,
+
+  // stack of workflows
+  stack: []
 })
 
 const initWorkspace = (workflowName) => {
@@ -74,18 +78,24 @@ export const execute = (workflowName, workflowYaml, opts = {}) => {
       }
     })
     .chain(wfs => Box.modifyState((st) => initState(st, wfs), wfs))
-    .chain(() => executeWorkflow(workflowName))
+    .chain(() => executeWorkflow(workflowName, {}))
 }
 
-export const executeWorkflow = (workflowName) => {
+export const executeWorkflow = (workflowName, args = {}) => {
   let workspaceName
+
+  console.log(`DEBUG: Execute Workflow Start for ${workflowName}`)
 
   return Box.getState()
     .map(state => {
+      // save current workflow
+      if (state.workspaceName)
+        state.stack.push({ workflowName: state.workflowName, workspaceName: state.workspaceName })
       workspaceName = initWorkspace(workflowName)
-      state.workspaces[workspaceName] = {}
+      state.workspaces[workspaceName] = { ...args }
       state.workspace = state.workspaces[workspaceName]
       state.workflowName = workflowName
+      state.workspaceName = workspaceName
       return state
     })
     .chain(state => {
@@ -104,12 +114,48 @@ export const executeWorkflow = (workflowName) => {
       }
       return Box.Err(`ERROR: the workflow ${workflowName} does not exist`)
     })
-    .chain(state => handleResult(state))
+    .chain(state => handleResult(state))  // TODO handle cleanup for errors
+    .chain(ret =>
+      Box.getState()
+        .map(state => {
+          if (state.stack.length) {
+            let stack = state.stack.pop()
+            state.workflowName = stack.workflowName
+            state.workspaceName = stack.workspaceName
+            state.workspace = state.workspaces[stack.workspaceName]
+          }
+          return ret
+        })
+    )
+    .bichain(ret => {
+      console.log(`DEBUG: Execute Workflow End (Err) for ${workflowName}`)
+      return Box.Err(ret)
+    }, ret => {
+      console.log(`DEBUG: Execute Workflow End (Ok) for ${workflowName}`)
+      return Box.Ok(ret)
+    })
+}
+
+export const getActionType = (action) => {
+  if (action.setvars) return "setvars"
+  else if (action.setstate) return "setstate"
+  else if (action.workflow) return "workflow"
+  else if (action.error) return "error"
+  else if (action.end) return "end"
+  else if (action.abort) return "abort"
+  else if (action.alt) return "alt"
+  else if (action.sleep) return "sleep"
+  else if (action.traverse) return "traverse"
+  else if (action.python) return "python"
+  else if (action.js) return "js"
+  else if (action.assert) return "assert"
+  return "unknown"
 }
 
 export const executeAction = (action, state) => {
   let workflowName = state.workflowName
   state.action = action
+  console.log(`DEBUG: Execute Action (${getActionType(action)}) Start for ${workflowName}->${action.name}`)
 
   if (state.ended || state.aborted) return Box(x => x)
 
@@ -132,10 +178,41 @@ export const executeAction = (action, state) => {
     })
     return box.map(() => state)
   }
+  else if (action.workflow) {
+    let args = {}
+    let box = Box.Ok()
+    if (R.is(Object, action.args)) {
+      Object.entries(action.args).map(([key, value]) => {
+        box = box.chain(() => execExpression(key, value, state).map(v => {
+          args[key] = v
+          return args
+        }))
+      })
+    }
+    return box.chain(args => executeWorkflow(action.workflow, args))
+      .map(ret => {
+        let store = action.store || "result"
+        if (state.workspace) state.workspace[store] = ret
+        return ret
+      })
+  }
   else if (action.assert) {
     let box = Box.Ok()
     Object.entries(action.assert).map(([key, value]) => {
-      box = box.chain(() => assertAction(key, value, state))
+      if (key === "$expressions" && R.is(Array, value)) {
+        value.map(val => {
+          box = box.bichain(
+            (err) => assertExprAction("$expressions", val, state, err),
+            () => assertExprAction("$expressions", val, state)
+          )
+        })
+      } else {
+        box = box.bichain(
+          (err) => assertEqualsAction(key, value, state, err),
+          () => assertEqualsAction(key, value, state)
+        )
+
+      }
     })
     return box.map(() => state)
   }
@@ -164,7 +241,7 @@ export const execExpression = (key, value, state) => {
 }
 
 export const setvarsAction = (key, value, state) => {
-  return execExpression(key, value, state, state.workflowName, state.action)
+  return execExpression(key, value, state)
     .map(ret => {
       state.workspace[key] = ret
       return state
@@ -172,7 +249,7 @@ export const setvarsAction = (key, value, state) => {
 }
 
 export const setstateAction = (key, value, state) => {
-  return execExpression(key, value, state, state.workflowName, state.action)
+  return execExpression(key, value, state)
     .map(ret => {
       state.wstate[key] = ret
       return state

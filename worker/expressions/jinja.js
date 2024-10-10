@@ -11,6 +11,9 @@ nenv.addFilter("url_params", (url, params) => {
   if (p.length) return url + "?" + p
   return new nunjucks.SafeString(url)
 })
+nenv.addFilter("toJson", (obj) => {
+  return new nenv.filters.safe(JSON.stringify(obj))
+})
 
 export const evalJinja = (key, value, state, workflowName, action) => {
   console.log(`DEBUG Jinja Workflow:${workflowName} Action:${action?.name || "noname"} Key:${key} Vars:${JSON.stringify(state.workspace)}`)
@@ -25,7 +28,7 @@ export const evalJinja = (key, value, state, workflowName, action) => {
   else if (R.is(Object, value) && value.$jinja) expression = value.$jinja
 
   try {
-    res = nenv.renderString(expression, { ...vars, $_all: { ...state.workspace } })
+    res = nenv.renderString(expression, { ...vars, $_all: { ...state.workspace } }).trim()
   }
   catch (err) {
     if (R.is(Object, value) && value.default) return Box.Ok(value.default)
