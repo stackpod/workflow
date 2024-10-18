@@ -1,40 +1,40 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { execExpression } from "../execute.js"
+import chalk from "chalk"
 
-export const handleResult = (state) => {
-  let workflowName = state.workflowName
+const cm = chalk.magenta
+const cy = chalk.yellow
+const cr = chalk.red
+const cg = chalk.green
 
-  const clearWorkflowState = (res) => {
-    delete state.workspaces[state.workspace]
-    state.workspace = null
-    state.workspaceName = ""
-    state.workflowName = ""
+export const handleResult = (state, locals, traversals) => {
+  let workflowName = locals.workflowName
+
+  const logresult = (res) => {
+    console.log(`${locals.l2s(2)}DEBUG: ${cy("result")} for ${cm(workflowName)} result:`, cy(JSON.stringify(res)))
     return res
   }
-
-  console.log(`DEBUG: handleResult`, state, workflowName)
   if (!state.workflows[workflowName].result) {
     return Box.Ok("Ok")
-      .map(clearWorkflowState)
+      .map(logresult)
   }
   if (R.is(String, state.workflows[workflowName].result)) {
-    return execExpression("result", state.workflows[workflowName].result, state, workflowName, {})
-      .bimap(clearWorkflowState, clearWorkflowState)
+    return execExpression("result", state.workflows[workflowName].result, state, locals, traversals)
+      .map(logresult)
   }
   if (R.is(Object, state.workflows[workflowName].result)) {
     let res = {}
     return Box.Ok(Object.entries(state.workflows[workflowName].result))
       .traverse(([key, value]) => {
-        return execExpression(key, value, state, workflowName, {})
+        return execExpression(key, value, state, locals, traversals)
           .map(ret => {
             res[key] = ret
             return res
           })
       })
       .map(() => res)
-      .bimap(clearWorkflowState, clearWorkflowState)
+      .map(logresult)
   }
-  clearWorkflowState(null)
   return Box.Err(`ERROR: Workflow ${workflowName} has invalid type of "result" definition. Should be either string or object`)
 }

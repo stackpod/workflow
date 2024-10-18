@@ -1,0 +1,22 @@
+---
+workflows:
+- name: example.sleep.1
+  description: To show tasks that can delay
+  actions:
+  - name: start
+    setvars:
+      start:
+        $jinja: '{{ "" | dateTm }}'
+        jsonParse: true
+  - name: sleep
+    sleep: 3
+  - name: end
+    setvars:
+      end:
+        $jinja: '{{ "" | dateTm }}'
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - >-
+        {{ end - start > 3 }}

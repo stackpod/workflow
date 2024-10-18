@@ -1,0 +1,128 @@
+---
+workflows:
+- name: example.jq.simple.1
+  description: Workflow to demonstrate jq template
+  actions:
+  - name: start
+    setvars:
+      base_url: https://example.com/api/example
+      params:
+        user: myname
+        scheme: dark
+  - name: setvars
+    setvars:
+      url:
+        $jq: ".base_url + \"?\" + (.params | urlparams)"
+        jsonParse: false
+      # Will return "https://example.com/api/example?user=myname&scheme=dark"
+  - name: testing
+    assert:
+      url: "https://example.com/api/example?user=myname&scheme=dark"
+
+- name: example.jq.simple.2
+  description: Workflow to demonstrate jq template
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: setvars
+    setvars:
+      body:
+        $jq: '"Dear " + (.firstName|capitalize) + " " + (.lastName|capitalize)'
+        jsonParse: false
+  - name: testing
+    assert:
+      body: Dear John Doe
+
+- name: example.jq.simple.3
+  description: Workflow to demonstrate jq toJson
+  actions:
+  - name: start
+    setvars:
+      params:
+        user: myname
+        scheme: dark
+        values:
+        - allow
+        - deny
+        - null
+        - false
+  - name: setvars
+    setvars:
+      jparams:
+        $jq: ".params | tojson"
+        jsonParse: false
+  - name: testing
+    assert:
+      jparams: '{"user":"myname","scheme":"dark","values":["allow","deny",null,false]}'
+
+- name: example.jq.simple.4
+  description: Workflow to demonstrate dumping all values to a variable
+  actions:
+  - name: start
+    setvars:
+      params:
+        user: myname
+        scheme: dark
+        values:
+        - allow
+        - deny
+        - null
+        - false
+  - name: setvars
+    setvars:
+      debug:
+        $jq: ".|tojson"
+        jsonParse: false
+  - name: testing
+    assert:
+      debug: '{"params":{"user":"myname","scheme":"dark","values":["allow","deny",null,false]},"state":{}}'
+
+- name: example.jq.simple.5
+  description: Workflow to demonstrate if and for loops with jq
+  actions:
+  - name: start
+    setvars:
+      mylist: [1, 2, 3, 4]
+      mylist_concatenated:
+        $jq: '.mylist | map(. + 1) | join(",")'
+        jsonParse: false
+      mylist_added:
+        $jq: '.mylist | map(. + 1)'
+      mylist_added_str:
+        $jq: '.mylist | map(. + 1)'
+        jsonParse: false
+  - name: testing
+    assert:
+      mylist_concatenated: "2,3,4,5"
+      mylist_added_str: "[2,3,4,5]"
+      $expressions:
+      - "{{ mylist_added[3] == 5 }}"
+      - $jq: ".mylist_added[3] == 5"
+
+- name: example.jq.simple.6
+  description: Workflow to demonstrate json to CSV
+  actions:
+  - name: start
+    setvars:
+      result:
+      - {"slno": 1, "name": "ABC", "age": 25, "status": true}
+      - {"slno": 2, "name": "DEF", "age": 23, "status": false}
+      - {"slno": 3, "name": "GHI", "age": 18, "status": true}
+  - name: convert to csv
+    setvars:
+      csv:
+        $jq: >
+            .result
+            | (map(keys_unsorted) | .[0]) as $keys
+            | $keys, (.[] | [ .[$keys[]] ])
+            | @csv
+        jsonParse: false
+  - name: test
+    assert:
+      csv: |-
+          "slno","name","age","status"
+          1,"ABC",25,true
+          2,"DEF",23,false
+          3,"GHI",18,true

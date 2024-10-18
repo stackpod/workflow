@@ -19,6 +19,8 @@ workflows:
       user: they
   - name: calling workflow 1
     workflow: example.called.workflow.1
+    args:
+      user: "{{ user }}"
     store: result
   - name: testing the result
     assert:
@@ -42,5 +44,5 @@ workflows:
       result2: ok
       $expressions:
       - >-
-        {% set regexp = r/ERROR/ %}
+        {% set regexp = r/ERROR.*the workflow.*does not exist/ %}
         {{ regexp.test($error) }}

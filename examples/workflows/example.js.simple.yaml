@@ -1,0 +1,60 @@
+---
+workflows:
+- name: example.js.simple.1
+  description: Workflow to demonstrate js template
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: setvars
+    setvars:
+      body:
+        $js: |
+          function capitalize(str) { return str[0].toUpperCase() + str.slice(1) }
+          `Dear ${capitalize(firstName)} ${capitalize(lastName)}`
+        jsonParse: false
+  - name: testing
+    assert:
+      body: Dear John Doe
+
+- name: example.js.simple.2
+  description: Workflow to demonstrate JSON parsing in js template
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: setvars
+    setvars:
+      profile:
+        $js: |
+          function capitalize(str) { return str[0].toUpperCase() + str.slice(1) }
+          JSON.stringify({firstName: capitalize(firstName), lastName: capitalize(lastName)})
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - '{{ profile.firstName == "John" }}'
+
+- name: example.js.simple.3
+  description: Workflow to demonstrate require modules in js template
+  actions:
+  - name: uuid
+    setvars:
+      uuid:
+        $js: 'require("uuid").v4()'
+  - name: list of js files
+    setvars:
+      list_of_json_files:
+        $js: |
+          const fs = require("fs");
+          JSON.stringify(
+            fs.readdirSync( process.cwd() )
+              .filter(f => f.endsWith(".json"))
+          )
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - $jq: '.list_of_json_files|any(. == "package.json")'

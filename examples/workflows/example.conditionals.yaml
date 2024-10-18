@@ -1,0 +1,25 @@
+---
+workflows:
+- name: example.conditionals.1
+  description: Workflow to demonstrate simple conditional
+  actions:
+  - name: start
+    setvars:
+      profile:
+        role: Admin
+  - name: conditionals
+    conditionals:
+    # If condition
+    - condition: '{{ profile.role == "Admin" }}'
+      actions:
+      - name: setvars
+        setvars:
+          iAmAdmin: true
+    # else condition
+    - actions:
+      - name: setvars
+        setvars:
+          iAmAdmin: false
+  - name: testing
+    assert:
+      iAmAdmin: true

@@ -19,7 +19,7 @@ workflows:
       # Will return "John Doe"
   - name: testing
     assert:
-      jparams: '{"params":{"user":"myname","scheme":"dark","values":["allow","deny",null,false]}}'
+      jparams: '{"user":"myname","scheme":"dark","values":["allow","deny",null,false]}'
 
 - name: example.jinja.simple.4
   description: Workflow to demonstrate dumping all values to a variable

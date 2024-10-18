@@ -1,0 +1,29 @@
+---
+workflows:
+- name: example.state.1
+  description: Workflow to demonstrate state vars
+  actions:
+  - name: setstate
+    setstate:
+      hello:
+        world: great
+  - name: workflow calling
+    workflow: example.state.called.2
+    store: result
+  - name: testing
+    assert:
+      $expressions:
+      - '{{ state.hello.world == "great" }}'
+      - '{{ result.params.world == "great" }}'
+
+- name: example.state.called.2
+  actions:
+  - name: set hello
+    setvars:
+      output:
+        $jinja: '{{ state.hello | toJson }}'
+        jsonParse: true
+  result:
+    params:
+      $jq: '.output'
+      

@@ -1,0 +1,140 @@
+---
+workflows:
+- name: example.traverse.series.1
+  description: Workflow to demonstrate simple for loop with in-series processing
+  actions:
+  - name: setvars
+    setvars:
+      result: []
+  - name: traverse
+    traverse:
+      array: [1, 2, 3, 4, 5]
+      varName: item
+      actions:
+      - setvars:
+          result:
+            $js: "result.push(item + 1); result"
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ result[4] == 6 }}"
+
+- name: example.traverse.series.2
+  description: Workflow to demonstrate simple for loop with in-series processing and an exit conditional to break the loop
+  actions:
+  - name: setvars
+    setvars:
+      result: []
+  - name: traverse
+    traverse:
+      array: "$jq:[range(0;100)]"
+      varName: item
+      exitConditional: "$jq:.result | length >= 10"
+      actions:
+      - setvars:
+          result:
+            $js: "result.push(item + 1); result"
+  - name: testing
+    assert:
+      $expressions:
+      - "$jq:.result | length == 10"
+
+- name: example.traverse.series.3
+  description: Workflow to demonstrate a loop that breaks on the very first successful response
+  actions:
+  - name: setvars
+    setvars:
+      result: []
+  - name: traverse
+    traverse:
+      array: "$jq:[range(0;100)]"
+      varName: item
+      loopCheck: Any
+      actions:
+      - setvars:
+          result:
+            $js: "result.push(item + 1); result"
+  - name: testing
+    assert:
+      $expressions:
+      - "$jq:.result | length == 1"
+
+- name: example.traverse.parallel.1
+  description: >
+    Workflow to demonstrate simple loop with parallel processing with all items
+    in parallel. Since sleep is called first, the result array will be pushed
+    not in the same order in chronological order. But we should ensure
+    that the result has the same order as the corresponding input
+  actions:
+  - name: start
+    setvars:
+      start:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      result: []
+  - name: traverse
+    traverse:
+      array: "$jq:[range(5;0;-1)]"   # should result in [5, 4, 3, 2, 1]
+      varName: item
+      indexName: index
+      parallel: true
+      actions:
+      - name: sleep
+        sleep:
+          $js: "item / 10"
+          jsonParse: true
+      - name: setvars
+        setvars:
+          result:
+            $js: "result[index] = item + 1; result"
+  - name: end
+    setvars:
+      end:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ result[0] == 6 and result[1] == 5 and result[2] == 4 and result[3] == 3 and result[4] == 2 }}"
+      - "{{ (end - start > 0.5) and (end - start < 0.6) }}"     #- "{{ end - start > 0.5 && end - start < 0.6 }}"
+
+- name: example.traverse.parallel.2
+  description: >
+    Workflow to demonstrate simple loop with parallel processing but 
+    only 3 items in parallel at a given time.
+    First 1, 2, 3 will be run - each will run for 100ms, 200ms, 300ms
+    When 1st entry gets completed (100ms), item 4 will run 
+    When 2nd entry gets completed (200ms), item 5 will run
+    So the time taken will be 200ms + 500ms. This is verified
+  actions:
+  - name: setvars
+    setvars:
+      start:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      result: []
+  - name: traverse
+    traverse:
+      array: "$jq:[range(1;6)]"   # Should result in [1,2,3,4,5]
+      varName: item
+      indexName: index
+      parallel: 3
+      actions:
+      - setvars:
+          result:
+            $js: "result[index] = item + 1; result"
+      - name: sleep
+        sleep:
+          $js: "item / 10"
+          jsonParse: true
+  - name: end
+    setvars:
+      end:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      diff: '$jq:.end - .start'
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ result[4] == 6 }}"
+      - "{{ (end - start > 0.7) and (end - start < 0.8) }}"
