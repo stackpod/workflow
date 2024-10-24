@@ -1,0 +1,57 @@
+---
+workflows:
+- name: example.restapi.1
+  description: Workflow to demonstrate making simple API calls
+  actions:
+  - name: getIP
+    workflow: core.restapi
+    args:
+      _request:
+        url: https://ipinfo.io/ip
+      _response:
+        text: true
+    store: myip
+  - name: test my ip
+    assert:
+      $expressions:
+      - "{{ r/^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)$/.test(myip) }}"
+
+- name: example.restapi.2
+  description: Workflow to get more meta data from API result
+  actions:
+  - name: getIP
+    workflow: core.restapi
+    args:
+      _request:
+        url: https://ipinfo.io/ip
+      _response:
+        text: true
+      process: "{{ '$jq:.' }}"   # We are actually escaping the expression, so there are double expressions
+                                #  A jq expression that is inside a jinja expression
+    store: result
+  - name: test my ip and status code
+    assert:
+      $expressions:
+      - "{{ r/^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)$/.test(result.body) }}"
+      - "{{ result.statusCode == 200 }}"
+
+- name: example.restapi.3
+  description: Workflow to get a json data
+  actions:
+  - name: getIP
+    workflow: core.restapi
+    args:
+      _request:
+        url: https://ipinfo.io/
+        headers:
+          "user-agent": "curl/8.5.0" # If this is there, then it sends json response. 
+                                    # Probably will work if accept: application/json
+      _response:
+        json: true
+    store: result
+  - name: test my ip and country
+    assert:
+      $expressions:
+      - "{{ r/^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)$/.test(result.ip) }}"
+      - "{{ result.country == 'IN' }}"
+      - "{{ result.city == 'Bengaluru' }}"

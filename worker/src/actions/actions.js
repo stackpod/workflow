@@ -42,18 +42,35 @@ export const sleepAction = (state, locals, traversals) => {
     })
 }
 
-export const workflowAction = (state, locals, traversals) => {
-  let action = locals.action
+export const constructArgs = (params, state, locals, traversals) => {
   let args = {}
-  let box = Box.Ok()
-  if (R.is(Object, action.args)) {
-    Object.entries(action.args).map(([key, value]) => {
-      box = box.chain(() => execExpression(key, value, state, locals, traversals).map(v => {
-        args[key] = v
-        return args
-      }))
+  let box = Box.Ok(args)
+  if (R.is(Object, params)) {
+    Object.entries(params).map(([key, value]) => {
+      if (key.startsWith("_") && R.is(Object, value)) {
+        Object.entries(value).map(([k, v]) => {
+          box = box.chain(() => execExpression(k, v, state, locals, traversals).map(_v => {
+            if (!args[key]) args[key] = {}
+            args[key][k] = _v
+            return args
+          }))
+        })
+      }
+      else {
+        box = box.chain(() => execExpression(key, value, state, locals, traversals).map(v => {
+          args[key] = v
+          return args
+        }))
+
+      }
     })
   }
+  return box
+}
+
+export const workflowAction = (state, locals, traversals) => {
+  let action = locals.action
+  let box = constructArgs(action.args, state, locals, traversals)
   return box.chain(args => executeWorkflow(action.workflow, args, locals.level + 1))
     .map(ret => {
       let store = action.store || "result"

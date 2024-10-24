@@ -14,6 +14,8 @@ import chalk from "chalk"
 import { conditionalsAction } from "./actions/conditionals.js"
 import { traverseAction } from "./actions/traverse.js"
 import { setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
+import { coreWorkflows } from "./core/index.js"
+import { createLocals } from "./utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -78,13 +80,9 @@ export const execute = (workflowName, opts = {}) => {
 }
 
 export const executeWorkflow = (workflowName, args = {}, level = 1) => {
-  let locals = {
-    vars: { ...args },
-    workflowName,
-    level,
-    l2s: (spaces = 0) => R.range(0, (level == 1 ? 2 : ((level - 1) * 4 + 2)) + spaces).map(() => " ").join(""),
-    ended: false
-  }
+  if (workflowName.startsWith("core.")) return coreWorkflows(workflowName, args, level)
+  let locals = createLocals(workflowName, level)
+  locals.vars = { ...args }
   let traversals = {}
   let state = null
 

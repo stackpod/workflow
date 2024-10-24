@@ -1,0 +1,45 @@
+---
+workflows:
+- name: startup.example.scheduler.1
+  description: Workflow to demonstrate setting up a scheduler
+  actions:
+  - name: setvars
+    setvars:
+      schedulerSet: true
+  - name: setup a scheduler every 1 min
+    workflow: core.scheduler
+    args:
+      minute: '*'
+      workflow:
+        name: example.scheduler.2
+  - name: assert
+    assert:
+      schedulerSet: true
+
+- name: example.scheduler.2
+  description: Workflow that is called as a scheduled workflow
+  actions:
+  - name: setvars
+    setvars:
+      called: true
+  - name: sleep
+    sleep: 10
+  - name: assert
+    assert:
+      called: true
+
+- name: startup.example.scheduler.3
+  description: Workflow to demonstrate setting up a scheduler
+  actions:
+  - name: setvars
+    setvars:
+      schedulerSet: true
+  - name: setup a scheduler every 2 min
+    workflow: core.scheduler
+    args:
+      minute: '*/2'
+      workflow:
+        name: example.scheduler.2
+  - name: assert
+    assert:
+      schedulerSet: true
