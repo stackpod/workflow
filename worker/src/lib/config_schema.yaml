@@ -1,0 +1,44 @@
+"$schema": https://json-schema.org/draft/2020-12/schema
+$id: https://stackpod.io/workflows/schemas/config
+title: Workflow configs
+description: Configurations to Workflow engine
+type: object
+properties:
+  smtp:
+    description: SMTP settings to send email
+    type: array
+    items:
+      type: object
+      properties:
+        profile:
+          description: Name of the smtp profile
+          type: string
+          minLength: 5
+          maxLength: 255
+          pattern: "^[A-Za-z0-9][A-Za-z0-9 -_.]+$"
+        description:
+          description: Description of the SMTP profile
+          type: string
+        endpoint:
+          description: SMTP endpoint address. Just the hostname
+          type: string
+        port:
+          description: SMTP port. Default is 465
+          type: number
+        secure:
+          description: Is this a secure port or not? (TLS/SSL or not). Default is True for port 465
+          type: boolean
+        authUser:
+          description: Authentication User name. No default.
+          type: string
+        authPassword:
+          description: Authentication Password. No default.
+          type: string
+        fromEmail:
+          description: The default From Email Addresses
+          type: array
+          items:
+            type: object
+      required:
+        - profile
+        - endpoint

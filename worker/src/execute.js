@@ -60,6 +60,7 @@ const initState = (st, wfs) => ({
   workflows: wfs,
   wstate: {},
   aborted: false,
+  config: {}
 
   // workflow specific -- removed now
 })
@@ -76,6 +77,11 @@ export const execute = (workflowName, opts = {}) => {
       }
     })
     .chain(wfs => Box.modifyState((st) => initState(st, wfs), wfs))
+    .chain(() => loadConfig(opts.configFile))
+    .chain(config => Box.modifyState(st => ({
+      ...st,
+      config
+    }))
     .chain(() => executeWorkflow(workflowName, {}, 1))
 }
 
