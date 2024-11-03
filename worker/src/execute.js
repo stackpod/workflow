@@ -13,9 +13,10 @@ import { altAction } from "./actions/alt.js"
 import chalk from "chalk"
 import { conditionalsAction } from "./actions/conditionals.js"
 import { traverseAction } from "./actions/traverse.js"
-import { setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
+import { returnAction, setloopvarsAction, setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
 import { coreWorkflows } from "./core/index.js"
 import { createLocals } from "./utils.js"
+import { loadConfig } from "./config.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -81,7 +82,7 @@ export const execute = (workflowName, opts = {}) => {
     .chain(config => Box.modifyState(st => ({
       ...st,
       config
-    }))
+    }), config))
     .chain(() => executeWorkflow(workflowName, {}, 1))
 }
 
@@ -140,17 +141,23 @@ export const execActions = (actions, state, locals, traversals) => {
   }
 
   let box = Box.Ok()
+  let returnValue = null
   actions.map((action) => {
     box = box.bimap(ret => setAction(ret, action), ret => setAction(ret, action))
     if (locals.ended === false && state.aborted === false && action.alt) {
       box = box.alt((value) => altAction(value, state, locals, traversals))
     }
     else {
-      box = box.chain(() => executeAction(state, locals, traversals))
+      box = box
+        .chain(() => executeAction(state, locals, traversals))
+        .map(ret => {
+          if (action.return && R.is(Object, ret) && ret.hasOwnProperty(locals.retSymbol)) returnValue = ret[locals.retSymbol]
+          return ret
+        })
     }
     box = box.bimap(ret => clearAction(ret), ret => clearAction(ret))
   })
-  return box.map((ret) => `action ok - ${ret}`)
+  return box.map((ret) => returnValue === null ? `action ok - ${ret}` : returnValue)
 }
 
 export const getActionType = (action) => {
@@ -167,6 +174,8 @@ export const getActionType = (action) => {
   else if (action.js) return "js"
   else if (action.conditionals) return "conditionals"
   else if (action.assert) return "assert"
+  else if (action.return) return "return"
+  else if (action.setloopvars) return "setloopvars"
   return "unknown"
 }
 
@@ -189,6 +198,14 @@ export const executeAction = (state, locals, traversals) => {
   }
   else if (action.setstate) {
     return setstateAction(state, locals, traversals)
+      .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
+  }
+  else if (action.setloopvars) {
+    return setloopvarsAction(state, locals, traversals)
+      .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
+  }
+  else if (action.return) {
+    return returnAction(state, locals, traversals)
       .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
   }
   else if (action.sleep) {

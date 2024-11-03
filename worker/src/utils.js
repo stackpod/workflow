@@ -225,6 +225,7 @@ export const ErrorToString = (error, stack = false) => {
 }
 
 let runningId = 0
+let retSymbol = Symbol("return")
 export const createLocals = (workflowName, level = 1) => {
   runningId += 1
   const f = (id) => (spaces = 0) => {
@@ -238,6 +239,13 @@ export const createLocals = (workflowName, level = 1) => {
     level,
     id: runningId,
     l2s: f(runningId),
-    ended: false
+    ended: false,
+    retSymbol,
   }
+}
+
+export const sleep = (timeout) => {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(timeout), timeout)
+  })
 }

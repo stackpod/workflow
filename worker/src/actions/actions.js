@@ -10,7 +10,7 @@ export const setvarsAction = (state, locals, traversals) => {
       execExpression(key, value, state, locals, traversals)
         .map(ret => {
           locals.vars[key] = ret
-          return state
+          return ret
         })
     )
   })
@@ -25,11 +25,37 @@ export const setstateAction = (state, locals, traversals) => {
       execExpression(key, value, state, locals, traversals)
         .map(ret => {
           state.wstate[key] = ret
-          return state
+          return ret
         })
     )
   })
   return box
+}
+
+export const setloopvarsAction = (state, locals, traversals) => {
+  let action = locals.action
+  let box = Box.Ok()
+  Object.entries(action.setloopvars).map(([key, value]) => {
+    box = box.chain(() =>
+      execExpression(key, value, state, locals, traversals)
+        .map(ret => {
+          traversals[key] = ret
+          return ret
+        })
+    )
+  })
+  return box
+}
+
+export const returnAction = (state, locals, traversals) => {
+  let action = locals.action
+  let box = Box.Ok()
+  Object.entries({ return: action.return }).map(([key, value]) => {
+    box = box.chain(() => execExpression(key, value, state, locals, traversals))
+  })
+  return box.map(ret => ({
+    [locals.retSymbol]: ret
+  }))
 }
 
 export const sleepAction = (state, locals, traversals) => {

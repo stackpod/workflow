@@ -1,0 +1,18 @@
+---
+workflows:
+- name: example.sendemail.1
+  description: Workflow to demonstrate sending email
+  actions:
+  - name: send test email
+    workflow: core.sendemail
+    args:
+      profile: "imail-user1"
+      to: [ "User 2 <user2@imail.stackpod.in>" ]
+      subject: Test email from workflow 127
+      body: "This is a test email from workflows numbered 127 sent at {{ '' | dateStr }}"
+    store: msgid
+  - name: check if msg id is proper
+    assert:
+      $expressions:
+      - "$jq: .msgid | length > 20"
+      - '$jq: .msgid | test("imail.stackpod.in")'

@@ -1,0 +1,43 @@
+---
+workflows:
+- name: example.getemail.1
+  description: Workflow to demonstrate reading emails
+  actions:
+  - name: read one email when you don't expect any unread emails
+    workflow: core.getemail
+    args:
+      profile: "imail-user1"
+      timeout: 10
+      interval: 3
+    store: email
+  - name: check if email is not present
+    assert:
+      $expressions:
+      - "$jq: .email.from == null"
+
+- name: example.getemail.2
+  description: Workflow to demonstrate reading emails after sending one email
+  actions:
+  - name: setvars
+    setvars:
+      tm: "{{ '' | dateTm }}"
+  - name: send one email now
+    workflow: core.sendemail
+    args:
+      profile: "imail-user2"
+      to: "User one <user1@imail.stackpod.in"
+      subject: Test email from example.getemail.2 {{ tm }}
+      body: "This is a test email from workflow example.getemail.2 sent at {{ '' | dateStr }}"
+    store: msgid
+  - name: read one email now
+    workflow: core.getemail
+    args:
+      profile: "imail-user1"
+      timeout: 30
+      interval: 3
+    store: email
+  - name: check if email is not present
+    assert:
+      $expressions:
+      - '$jq: .email.from.text | test("user2@imail.stackpod.in")'
+      - "{{ email.subject == 'Test email from example.getemail.2 ' + tm }}"

@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-RUN apk add jq curl bash
+RUN apk add jq curl bash tzdata
 
 RUN mkdir -p /examples /yaml /app/src
 

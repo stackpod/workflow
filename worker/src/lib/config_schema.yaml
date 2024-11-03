@@ -19,7 +19,7 @@ properties:
         description:
           description: Description of the SMTP profile
           type: string
-        endpoint:
+        host:
           description: SMTP endpoint address. Just the hostname
           type: string
         port:
@@ -41,4 +41,4 @@ properties:
             type: object
       required:
         - profile
-        - endpoint
+        - host

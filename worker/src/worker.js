@@ -45,4 +45,7 @@ let box = await Box(options.workflows)
   .traverse(wf => execWf(wf), Box.TraverseAllSettled, Box.TraverseSeries)
   .runPromise()
 
-if (Box.isErr(box)) console.log(box.inspect())
+if (Box.isErr(box)) {
+  console.log(box.inspect())
+  process.exit(1)
+}

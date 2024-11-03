@@ -1,6 +1,6 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
-import { ErrorToString, safeFetched } from "../utils.js"
+import { createLocals, ErrorToString, safeFetched } from "../utils.js"
 import { execExpression } from "../execute.js"
 
 export const restApiWorkflow = (args, level) => {
@@ -14,7 +14,7 @@ export const restApiWorkflow = (args, level) => {
     .map(_state => { state = _state; return undefined })
     .chain(() => safeFetched(args))
     .chain(result => args.process
-      ? execExpression("process", args.process, state, { ...locals, ...state, vars: { ...result } }, {})
+      ? execExpression("process", args.process, state, { ...locals, vars: { ...result } }, {})
       : Box(result.body)
     )
     .bimap(ErrorToString, R.identity)

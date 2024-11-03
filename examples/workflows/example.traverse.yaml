@@ -138,3 +138,43 @@ workflows:
       $expressions:
       - "{{ result[4] == 6 }}"
       - "{{ (end - start > 0.7) and (end - start < 0.8) }}"
+
+- name: example.traverse.parallel.3
+  description: >
+    Same as example.traverse.parallel.2, but this time we make
+    use of "return" from actions and setloopvars
+    Except the order of initial array is changed (to test if data is received in order)
+    and the time takes will be different now.
+  actions:
+  - name: setvars
+    setvars:
+      start:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+  - name: traverse
+    traverse:
+      array: "$jq:[range(5;0;-1)]"   # Should result in [5,4,3,2,1]
+      varName: item
+      parallel: 3
+      actions:
+      - name: sleep
+        sleep:
+          $js: "item / 10"
+          jsonParse: true
+      - name: set local var 
+        setloopvars:
+          litem: "$jq: .item + 1"
+      - name: return
+        return: "$jq: .litem"
+      store: result
+  - name: end
+    setvars:
+      end:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      diff: '$jq:.end - .start'
+  - name: testing
+    assert:
+      $expressions:
+      - "$jq: .result == [6,5,4,3,2]"
+      - "{{ (end - start > 0.5) and (end - start < 0.7) }}"

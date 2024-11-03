@@ -40,18 +40,16 @@ export const loadConfig = (filename, opts = {}) => {
   const mergeConfigs = (yamls) => {
     let config = {}
     yamls.map(y => {
-      config = R.mergeRight(config, y)
-      })
+      config = R.mergeRight(config, y.yaml)
     })
     return Box.Ok(config)
   }
 
-  const configs = [ { filename: defaultConfig } ]
-  if(filename) configs.push( {filename })
-
+  const configs = [{ filename: defaultConfig }]
+  if (filename) configs.push({ filename })
 
   return Box.Ok(configs)
-    .traverse(_readFile, opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
+    .traverse(async cfg => await _readFile(cfg.filename), opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
     .traverse(parseYaml, opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
     .chain(mergeConfigs)
 }

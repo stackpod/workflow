@@ -35,8 +35,6 @@ export const assertAction = (state, locals, traversals) => {
     if (err)
       locals["$error"] = err
 
-    console.log("assertExprAction", key, value, err)
-
     const evalTrue = (ret) => ret === "true" || ret === true ? true : false
 
     const errFn = (ret) => {

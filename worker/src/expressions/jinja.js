@@ -19,7 +19,7 @@ nenv.addFilter("toJson", (obj) => {
   return new nenv.filters.safe(JSON.stringify(obj))
 })
 
-nenv.addFilter("dateStr", () => new nenv.filters.safe(new Date()))
+nenv.addFilter("dateStr", () => new nenv.filters.safe(new Date().toISOString()))
 nenv.addFilter("dateTm", () => Date.now() / 1000)
 
 

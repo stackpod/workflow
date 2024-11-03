@@ -1,5 +1,5 @@
 "$schema": https://json-schema.org/draft/2020-12/schema
-$id: https://stackpod.io/workflows/schema
+$id: https://stackpod.io/workflows/schema/workflow
 title: Workflows
 description: Workflows to define business actions
 type: object
@@ -48,6 +48,10 @@ $defs:
         properties:
           setstate: { "type": "object" }
         required: [ "setstate" ]
+      - type: object
+        properties:
+          setloopvars: { "type": "object" }
+        required: [ "setloopvars" ]
       - type: object
         properties:
           workflow: { "type": "string" }
@@ -118,3 +122,10 @@ $defs:
         properties:
           assert: { "type": "object" }
         required: [ "assert" ]
+      - type: object
+        properties:
+          return:
+            anyOf:
+            - type: object
+            - type: string
+        required: [ "return" ]
