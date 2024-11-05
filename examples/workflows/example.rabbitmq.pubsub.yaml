@@ -1,0 +1,52 @@
+---
+workflows:
+- name: example.rabbitmq.pubsub.logmsg.1
+  description: |
+    Workflow that actually does something with the read msg
+    This workflow is not expected to be called directly
+  actions:
+  - name: logger
+    logger: "Rcvd {{ message }}"
+  - name: setstate
+    setstate:
+      msgReceived: "{{ message }}"
+
+- name: example.rabbitmq.pubsub.subscribe.1
+  description: |
+    Workflow that receives rabbitmq messages and starts a workflow
+    When you call this workflow, it does not return. As it is
+    eternally waiting. So sending the message needs to be done
+    from another terminal
+  actions:
+  - name: recv msg
+    workflow: core.rabbitmq.subscribe
+    args:
+      profile: default
+      exchange: logs
+      type: direct
+      routingKeys: [ "info", "warning", "critical" ]
+      workflow: example.rabbitmq.pubsub.logmsg.1
+
+- name: example.rabbitmq.pubsub.publish.1
+  description: Workflow that sends a message to a queue
+  actions:
+  - name: send msg
+    workflow: core.rabbitmq.publish
+    args:
+      profile: default
+      exchange: logs
+      type: direct
+      routingKey: "info"
+      message: Hello World
+
+- name: example.rabbitmq.pubsub.publish.2
+  description: Workflow that sends a message to a queue so it stops the receiver
+  actions:
+  - name: send msg
+    workflow: core.rabbitmq.publish
+    args:
+      profile: default
+      exchange: logs
+      type: direct
+      routingKey: "info"
+      message: __STOP__

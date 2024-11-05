@@ -73,9 +73,10 @@ export const sendEmailWorkflow = (args, level) => {
       text: args.body,
       html: args.html || undefined,
     })
-      .map(R.toPairs)
-      .traverse(parseValues, Box.TraverseAll, Box.TraverseParallel)
-      .map(R.fromPairs)
+      // No need parse again, as the caller would have already executed the expressions and sent
+      //   .map(R.toPairs)
+      //   .traverse(parseValues, Box.TraverseAll, Box.TraverseParallel)
+      //   .map(R.fromPairs)
       .chain(async params => {
         try {
           const info = await transporter.sendMail({

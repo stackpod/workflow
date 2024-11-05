@@ -13,7 +13,7 @@ import { altAction } from "./actions/alt.js"
 import chalk from "chalk"
 import { conditionalsAction } from "./actions/conditionals.js"
 import { traverseAction } from "./actions/traverse.js"
-import { returnAction, setloopvarsAction, setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
+import { loggerAction, returnAction, setloopvarsAction, setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
 import { coreWorkflows } from "./core/index.js"
 import { createLocals } from "./utils.js"
 import { loadConfig } from "./config.js"
@@ -176,6 +176,7 @@ export const getActionType = (action) => {
   else if (action.assert) return "assert"
   else if (action.return) return "return"
   else if (action.setloopvars) return "setloopvars"
+  else if (action.logger) return "logger"
   return "unknown"
 }
 
@@ -226,6 +227,10 @@ export const executeAction = (state, locals, traversals) => {
   }
   else if (action.assert) {
     return assertAction(state, locals, traversals)
+      .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
+  }
+  else if (action.logger) {
+    return loggerAction(state, locals, traversals)
       .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
   }
   return Box.Err(`Workflow ${locals.workflowName} - no other action type supported as of now (${Object.keys(action)})`)

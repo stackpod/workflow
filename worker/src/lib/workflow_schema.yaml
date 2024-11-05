@@ -129,3 +129,10 @@ $defs:
             - type: object
             - type: string
         required: [ "return" ]
+      - type: object
+        properties:
+          logger:
+            anyOf:
+            - type: object
+            - type: string
+        required: [ "logger" ]

@@ -1,0 +1,46 @@
+---
+workflows:
+- name: example.rabbitmq.queue.logmsg.1
+  description: |
+    Workflow that actually does something with the read msg
+    This workflow is not expected to be called directly
+  actions:
+  - name: logger
+    logger: "Rcvd {{ message }}"
+  - name: setstate
+    setstate:
+      msgReceived: "{{ message }}"
+
+- name: example.rabbitmq.queue.recv.1
+  description: |
+    Workflow that receives rabbitmq messages and starts a workflow
+    When you call this workflow, it does not return. As it is
+    eternally waiting. So sending the message needs to be done
+    from another terminal
+  actions:
+  - name: recv msg
+    workflow: core.rabbitmq.recv
+    args:
+      profile: default
+      queue: alerts
+      workflow: example.rabbitmq.queue.logmsg.1
+
+- name: example.rabbitmq.queue.send.1
+  description: Workflow that sends a message to a queue
+  actions:
+  - name: send msg
+    workflow: core.rabbitmq.send
+    args:
+      profile: default
+      queue: alerts
+      message: Hello World
+
+- name: example.rabbitmq.queue.send.2
+  description: Workflow that sends a message to a queue so it stops the receiver
+  actions:
+  - name: send msg
+    workflow: core.rabbitmq.send
+    args:
+      profile: default
+      queue: alerts
+      message: __STOP__

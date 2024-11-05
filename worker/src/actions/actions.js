@@ -1,6 +1,12 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { execExpression, executeWorkflow } from "../execute.js"
+import chalk from "chalk"
+
+const cm = chalk.magenta
+const cy = chalk.yellow
+const cr = chalk.red
+const cg = chalk.green
 
 export const setvarsAction = (state, locals, traversals) => {
   let action = locals.action
@@ -56,6 +62,18 @@ export const returnAction = (state, locals, traversals) => {
   return box.map(ret => ({
     [locals.retSymbol]: ret
   }))
+}
+
+export const loggerAction = (state, locals, traversals) => {
+  let action = locals.action
+  let box = Box.Ok()
+  Object.entries({ logger: action.logger }).map(([key, value]) => {
+    box = box.chain(() => execExpression(key, value, state, locals, traversals))
+  })
+  return box.map(ret => {
+    console.log(`${locals.l2s(2)}${cy("LOGGER:")} for "${cm(locals.workflowName)}->${cm(action.name)}" --> ${ret}`)
+    return ret
+  })
 }
 
 export const sleepAction = (state, locals, traversals) => {
