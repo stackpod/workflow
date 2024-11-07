@@ -1,0 +1,101 @@
+---
+workflows:
+- name: example.python.expression.1
+  description: Workflow to demonstrate python template
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: setvars
+    setvars:
+      fullname:
+        $python: 'firstName.capitalize() + " " + lastName.capitalize()'
+        jsonParse: false
+  - name: testing
+    assert:
+      fullname: "John Doe"
+
+- name: example.python.expression.2
+  description: Workflow to demonstrate python template
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: setvars
+    setvars:
+      fullname:
+        $python: >
+          json.dumps({"name": firstName.capitalize() + " " + lastName.capitalize()})
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ fullname.name == 'John Doe' }}"
+
+- name: example.python.expression.3
+  description: Workflow to demonstrate python template
+  actions:
+  - name: start
+    setvars:
+      my_uuid: "$python: __import__('uuid').uuid4()"
+      json_files:
+        $python: json.dumps( [ f for f in os.listdir(".") if f.endswith(".json") ] )
+        jsonParse: true
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ my_uuid.length > 20 }}"
+      - "{{ json_files.length > 0 }}"
+
+- name: example.python.action.1
+  description: Workflow to demonstrate writing long python code
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: python code
+    python: |
+      def main(vars):
+        if vars.firstName:
+          return Ok({"fullname": vars.firstName.capitalize() + " " + vars.lastName.capitalize()})
+        else:
+          return Err("Please provide firstName and lastName")
+    store: pyresult
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ pyresult.fullname == 'John Doe' }}"
+
+- name: example.python.action.2
+  description: Workflow to demonstrate writing long python code
+  actions:
+  - name: setvars
+    setvars:
+      dir_to_scan: "."
+  - name: setstate
+    setstate:
+      file_type: ".json"
+  - name: python
+    python: |
+      import uuid, os
+      def get_uuid():
+          return str(uuid.uuid4())
+      def main(vars):
+          list_of_files = []
+          for f in os.listdir(vars.dir_to_scan):
+              if f.endswith(vars.state.file_type):
+                  list_of_files.append(f)
+
+          if len(list_of_files):
+              return Ok({"uuid": get_uuid(), "list_of_files": list_of_files})
+          else:
+              return Err(f"No files found with file type {vars.state.file_type}")
+    store: pyresult
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ pyresult.uuid.length > 20 }}"
+      - "{{ pyresult.list_of_files.length > 0 }}"

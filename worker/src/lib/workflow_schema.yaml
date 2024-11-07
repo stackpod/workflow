@@ -99,15 +99,19 @@ $defs:
         required: [ "sleep" ]
       - type: object
         properties:
-          python: { "type": "object" }
-          args: { "type": "object" }
+          python:
+            anyOf:
+            - type: object
+            - type: string
           store: { "type": "string" }
           timeout: { "type": "number" }
         required: [ "python" ]
       - type: object
         properties:
-          js: { "type": "object" }
-          args: { "type": "object" }
+          js:
+            anyOf:
+            - type: object
+            - type: string
           store: { "type": "string" }
           timeout: { "type": "number" }
         required: [ "js" ]

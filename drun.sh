@@ -8,5 +8,7 @@ docker run --rm -it registry.stackpod.io/workflow/worker:latest -w /examples -r 
 docker run --rm -it registry.stackpod.io/workflow/worker:latest -w /examples -r example.traverse.parallel.1 example.traverse.parallel.2
 docker run --rm -it registry.stackpod.io/workflow/worker:latest -w /examples -r example.sleep.1
 docker run --rm -it registry.stackpod.io/workflow/worker:latest -w /examples -r example.restapi.1 example.restapi.2 example.restapi.3
-docker run --rm -it -v examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.sendemail.1
-docker run --rm -it -v examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.getemail.1 example.getemail.2
+docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.sendemail.1
+docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.getemail.1 example.getemail.2
+docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.python.expression.1 example.python.expression.2 example.python.expression.3
+docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.python.action.1 example.python.action.2

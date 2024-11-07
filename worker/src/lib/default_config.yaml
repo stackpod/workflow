@@ -1,3 +1,12 @@
 ---
 smtp: []
 imap: []
+rabbitmq: []
+expressions:
+  python:
+    import:
+    - import sys, os, json
+    - import Bunch
+    install: []
+
+
