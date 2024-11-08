@@ -82,7 +82,8 @@ workflows:
     python: |
       import uuid, os
       def get_uuid():
-          return str(uuid.uuid4())
+          print("hello world") # Printing anything will show as 'STDOUT' in the log
+          return """uuid: """ + str(uuid.uuid4()) # Just wanted to test if three quotes can be used
       def main(vars):
           list_of_files = []
           for f in os.listdir(vars.dir_to_scan):

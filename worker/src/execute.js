@@ -18,6 +18,7 @@ import { coreWorkflows } from "./core/index.js"
 import { createLocals } from "./utils.js"
 import { loadConfig } from "./config.js"
 import { pythonAction } from "./actions/python.js"
+import { jsAction } from "./actions/javascript.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -236,6 +237,10 @@ export const executeAction = (state, locals, traversals) => {
   }
   else if (action.python) {
     return pythonAction(state, locals, traversals)
+      .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
+  }
+  else if (action.js) {
+    return jsAction(state, locals, traversals)
       .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
   }
   return Box.Err(`Workflow ${locals.workflowName} - no other action type supported as of now (${Object.keys(action)})`)

@@ -37,7 +37,7 @@ import sys, os, json
 from python.Bunch import Bunch
 
 vars = Bunch(${JSON.stringify(vars)})
-expr = """${expression.trim()}"""
+expr = """${expression.trim().replaceAll('"""', '\\"\\"\\"')}"""
 print(eval(expr, globals(), vars))
 `
   const options = {

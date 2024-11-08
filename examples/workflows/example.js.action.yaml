@@ -1,0 +1,24 @@
+---
+workflows:
+- name: example.js.action.1
+  description: Workflow to demonstrate writing long javascript code
+  actions:
+  - name: start
+    setvars:
+      firstName: john
+      lastName: doe
+  - name: js code
+    js: |
+      function capitalize(str) { return str[0].toUpperCase() + str.slice(1) }
+      const main = (vars) => {
+        if(vars.firstName)
+          return Ok({fullname: capitalize(vars.firstName) + " " + capitalize(vars.lastName)})
+        else
+          return Err("Please provide firstName and lastName")
+      }
+
+    store: result
+  - name: testing
+    assert:
+      $expressions:
+      - "{{ result.fullname == 'John Doe' }}"

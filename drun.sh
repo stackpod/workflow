@@ -12,3 +12,4 @@ docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.
 docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.getemail.1 example.getemail.2
 docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.python.expression.1 example.python.expression.2 example.python.expression.3
 docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.python.action.1 example.python.action.2
+docker run --rm -it -v $pwd/examples/config.yaml:/config.yaml registry.stackpod.io/workflow/worker:latest -w /examples -c /config.yaml -r example.js.action.1

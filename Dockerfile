@@ -9,7 +9,7 @@ ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 ENV VIRTUAL_ENV="/usr/local/pyvenv"
 ENV PATH="/usr/local/pyvenv/bin/:$PATH"
 
-RUN mkdir -p /examples /yaml /app/src
+RUN mkdir -p /examples /yaml /app/src /app/python
 
 COPY worker/package.json /app/package.json
 WORKDIR /app
@@ -18,5 +18,6 @@ RUN npm install
 
 COPY examples/workflows /examples/
 COPY worker/src /app/src/
+COPY worker/python /app/python/
 
 ENTRYPOINT ["node", "src/worker.js"]

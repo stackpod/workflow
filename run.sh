@@ -11,3 +11,4 @@ node src/worker.js -w ../examples/workflows -c ../examples/config.yaml -r exampl
 node src/worker.js -w ../examples/workflows -c ../examples/config.yaml -r example.getemail.1 example.getemail.2
 node src/worker.js -w ../examples/workflows -c ../examples/config.yaml -r example.python.expression.1 example.python.expression.2 example.python.expression.3
 node src/worker.js -w ../examples/workflows -c ../examples/config.yaml -r example.python.action.1 example.python.action.2
+node src/worker.js -w ../examples/workflows -c ../examples/config.yaml -r example.js.action.1

@@ -7,6 +7,7 @@ import path from "node:path"
 const cm = chalk.magenta
 const cy = chalk.yellow
 const cr = chalk.red
+const cg = chalk.green
 
 
 export const pythonAction = (state, locals, traversals) => {
@@ -29,6 +30,8 @@ export const pythonAction = (state, locals, traversals) => {
     }
   }
 
+  let separator = "d8d255f006348e960940794aaeb06ca8"
+
   let input = `
 from python.Bunch import Bunch
 from python.Result import Result
@@ -41,12 +44,13 @@ from python.Result import Result
 Ok = Result.Ok
 Err = Result.Err
 
-${code.trim()}
+${code.trim().replaceAll('"""', '\\"\\"\\"')}
 """
 
 g = {}
 exec(code, g, g)
 ret = g["main"](vars)
+print("${separator}")
 print(ret)
 `
 
@@ -57,13 +61,16 @@ print(ret)
 
   return safeSpawn("python3", [], options)
     .chain(ret => {
-      if (ret.stderr.length) return Box.Err(ret.stderr)
-      else return Box.Ok(ret.stdout.trim())
+      if (ret.stderr.length) return Box.Err(`ERROR: Exception during python execution Workflow: ${workflowName} Action:${action?.name || "python"}, ${ret.stdout + ret.stderr}`)
+      else {
+        console.log(`${locals.l2s(4)} STDOUT from python program Workflow: ${workflowName} Action:${action?.name || "python"}: ${cg(ret.stdout.slice(0, ret.stdout.indexOf(separator)).trim())}`)
+        return Box.Ok(ret.stdout.slice(ret.stdout.indexOf(separator) + separator.length + 1).trim())
+      }
     })
     .chain(ret => {
       return safeJsonParse(ret)
         .alt(err => {
-          return Box.Err(`ERROR parsing JSON string from python response. Workflow: ${workflowName} Action:${action?.name || "python"} Key:${key} Expr:${value.$python} Error:${ErrorToString(err)}`)
+          return Box.Err(`ERROR parsing JSON string from python response. Workflow: ${workflowName} Action:${action?.name || "python"} Ret:${ret} Error:${ErrorToString(err)}`)
         })
         .chain(ret => {
           if (ret.Ok) return Box.Ok(ret.Ok)
