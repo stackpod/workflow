@@ -248,6 +248,38 @@ export const executeAction = (state, locals, traversals) => {
     .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
 }
 
+export const identifyExpression = (value) => {
+  let act = "none"
+  if (R.is(String, value)) {
+    if (value.startsWith("$jinja:")) {
+      act = "jinja"
+      value = { $jinja: value.slice("$jinja:".length) }
+    }
+    else if (value.startsWith("$jq:")) {
+      act = "jq"
+      value = { $jq: value.slice("$jq:".length) }
+    }
+    else if (value.startsWith("$js:")) {
+      act = "js"
+      value = { $js: value.slice("$js:".length) }
+    }
+    else if (value.startsWith("$python:")) {
+      act = "python"
+      value = { $python: value.slice("$python:".length) }
+    }
+    else {
+      act = "jinja"
+    }
+  }
+  else if (R.is(Object, value) && value.$jinja) act = "jinja"
+  else if (R.is(Object, value) && value.$jq) act = "jq"
+  else if (R.is(Object, value) && value.$python) act = "python"
+  else if (R.is(Object, value) && value.$js) act = "js"
+  else if (R.is(Object, value)) act = "none"
+
+  return { act, value }
+}
+
 export const execExpression = (key, value, state, locals, traversals) => {
   let workflowName = locals.workflowName
   let action = locals.action

@@ -1,6 +1,6 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
-import { execExpression, executeWorkflow } from "../execute.js"
+import { execExpression, executeWorkflow, identifyExpression } from "../execute.js"
 import chalk from "chalk"
 
 const cm = chalk.magenta
@@ -93,8 +93,17 @@ export const constructArgs = (params, state, locals, traversals) => {
 
   const handleObject = (key, val, args) => {
     if (R.is(Object, val)) {
-      if (!args[key]) args[key] = {}
-      Object.entries(val).map(([k, v]) => handleObject(k, v, args[key]))
+      let { act } = identifyExpression(val)
+      if (act != "none") {
+        box = box.chain(() => execExpression(key, val, state, locals, traversals).map(_v => {
+          args[key] = _v
+          return args
+        }))
+      }
+      else {
+        if (!args[key]) args[key] = {}
+        Object.entries(val).map(([k, v]) => handleObject(k, v, args[key]))
+      }
     }
     else {
       box = box.chain(() => execExpression(key, val, state, locals, traversals).map(_v => {

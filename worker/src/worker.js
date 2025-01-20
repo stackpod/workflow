@@ -8,7 +8,7 @@ const program = new Command()
 program
   .name("worker")
   .description("worker for workflow engine")
-  .version("0.16")
+  .version("0.17")
   .option("-w, --path <str>", "yaml file or a directory having multiple yaml files")
   .option("-c, --config <str>", "configuration yaml file")
   .addOption(new Option("-l, --listen [port]", "listen on this port for commands").preset(8080).argParser(parseInt))
