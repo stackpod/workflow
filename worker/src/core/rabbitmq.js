@@ -1,7 +1,8 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
-import nodemailer from "nodemailer"
-import { execExpression, executeWorkflow } from "../execute.js"
+import { default as crocks } from "crocks"
+const { isFunction } = crocks
+import { executeWorkflow } from "../execute.js"
 import { createLocals, ErrorToString, sleep } from "../utils.js"
 import amqp from "amqplib"
 import chalk from "chalk"
@@ -275,7 +276,7 @@ export const rabbitMqSubscribe = (args, level) => {
     callback(msg).then().catch()
   }
 
-  const subscribe = async () => {
+  const subscribe = async (_x, isCancelled) => {
 
     let [err, profile] = constructProfile(state, args)
     if (err) return Box.Err(err)
@@ -318,7 +319,7 @@ export const rabbitMqSubscribe = (args, level) => {
       return Box.Err(`ERROR: core.rabbitmq.subscribe Unable to setup consumer, ${ErrorToString(err)}`)
     }
     while (true) {
-      if (cancelled) {
+      if (isFunction(isCancelled) && isCancelled()) {
         if (!closed) {
           channel.close()
           connection.close()
@@ -332,6 +333,6 @@ export const rabbitMqSubscribe = (args, level) => {
 
   return Box.getState()
     .map(_state => { state = _state; return undefined })
-    .chain(subscribe)
+    .chainWithIsCancelled(subscribe)
     .bimap(ErrorToString, R.identity)
 }

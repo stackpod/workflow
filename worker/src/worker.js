@@ -2,12 +2,13 @@ import { Command, Option } from "commander"
 import { Box } from "@stackpod/box"
 import chalk from "chalk"
 import { execute } from "./execute.js"
+import { EventEmitter } from "events"
 
 const program = new Command()
 program
   .name("worker")
   .description("worker for workflow engine")
-  .version("0.9.0")
+  .version("0.16")
   .option("-w, --path <str>", "yaml file or a directory having multiple yaml files")
   .option("-c, --config <str>", "configuration yaml file")
   .addOption(new Option("-l, --listen [port]", "listen on this port for commands").preset(8080).argParser(parseInt))
@@ -25,6 +26,9 @@ const options = program.opts()
 
 const wopts = { workflowsPath: options.path, configFile: options.config }
 
+EventEmitter.defaultMaxListeners = Infinity
+Error.stackTraceLimit = Infinity
+// Box.debug = true
 
 const execWf = async (workflow) => {
   let b = await Box()
@@ -37,7 +41,7 @@ const execWf = async (workflow) => {
       }
     })
     .runPromise()
-  console.log(chalk.blue(`${workflow} - Outcome -> `) + (Box.isOk(b) ? chalk.blue(b.toValue()) : chalk.red(b.toValue())))
+  console.log(chalk.blue(`${workflow} - Outcome -> `) + (Box.isOk(b) ? chalk.blue(JSON.stringify(b.toValue())) : chalk.red(b.toValue())))
   return b
 }
 

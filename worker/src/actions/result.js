@@ -25,7 +25,8 @@ export const handleResult = (state, locals, traversals) => {
   }
   if (R.is(Object, state.workflows[workflowName].result)) {
     let res = {}
-    return Box.Ok(Object.entries(state.workflows[workflowName].result))
+    let result = JSON.parse(JSON.stringify(state.workflows[workflowName].result))
+    return Box.Ok(Object.entries(result))
       .traverse(([key, value]) => {
         return execExpression(key, value, state, locals, traversals)
           .map(ret => {

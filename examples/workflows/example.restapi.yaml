@@ -55,3 +55,85 @@ workflows:
       - "{{ r/^(\\d+)\\.(\\d+)\\.(\\d+)\\.(\\d+)$/.test(result.ip) }}"
       - "{{ result.country == 'IN' }}"
       - "{{ result.city == 'Bengaluru' }}"
+
+- name: example.restapi.4
+  description: |
+    Workflow to test an invalid SSL cert site
+    This workflow is using a URL that is temporary (tested on Jan 2025) and may not
+    work after few days
+  actions:
+  - name: call invalid site
+    workflow: core.restapi
+    args:
+      _request:
+        url: https://98.70.75.234/api/v1/oauth/authenticate
+    store: result
+  - name: Alt check
+    alt:
+      ok: ok
+    store: result2
+  - name: testing the result
+    assert:
+      result2: ok
+      $expressions:
+      - >-
+        {% set regexp = r/ERROR.*fetch failed.*certificate/ %}
+        {{ regexp.test($error) }}
+
+- name: example.restapi.5
+  description: |
+    Workflow to test an invalid SSL cert site by ignoring the certificate
+    This workflow is using a URL that is temporary (tested on Jan 2025) and may not
+    work after few days
+  actions:
+  - name: call invalid site
+    workflow: core.restapi
+    args:
+      _request:
+        url: https://98.70.75.234/api/v1/oauth/authenticate
+        allowUntrustedCertificates: true
+      _response:
+        acceptAllHTTPStatusCodes: true
+    store: result
+  - name: testing the result
+    assert:
+      $expressions:
+      - "{{ result == undefined }}"
+
+- name: example.restapi.6
+  description: |
+    Workflow to verify if the headers are indeed being evaluated
+    This workflow is using an environment which is local to my laptop.
+
+    Run this python code in a separate terminal
+
+      from http.server import BaseHTTPRequestHandler, HTTPServer
+      class HTTPRequestHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+          print(self.headers.get("authorization"))
+          self.send_response(200)
+          self.send_header("Content-type", "text/text")
+          self.end_headers()
+          self.wfile.write(bytes(self.headers.get("authorization"), "ascii"))
+
+      httpd = HTTPServer(("localhost", 9000), HTTPRequestHandler)
+      httpd.serve_forever()
+  actions:
+  - name: setvars
+    setvars:
+      token: "abcd"
+  - name: call localhost
+    workflow: core.restapi
+    args:
+      token: "{{token}}"
+      _request:
+        url: http://localhost:9000/
+        headers:
+          authorization: "Bearer token {{token}}"
+      _response:
+        text: true
+    store: result
+  - name: testing the result
+    assert:
+      $expressions:
+      - "{{ result == 'Bearer token ' + token }}"

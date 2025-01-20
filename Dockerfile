@@ -9,6 +9,9 @@ ENV VIRTUAL_ENV_DISABLE_PROMPT=1
 ENV VIRTUAL_ENV="/usr/local/pyvenv"
 ENV PATH="/usr/local/pyvenv/bin/:$PATH"
 
+# I know this, which is true in node:22-alpine. This is the result of $(npm root -g)
+ENV NODE_PATH="/usr/local/lib/node_modules"
+
 RUN mkdir -p /examples /yaml /app/src /app/python
 
 COPY worker/package.json /app/package.json

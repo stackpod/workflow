@@ -5,19 +5,21 @@ workflows:
   actions:
   - name: setvars
     setvars:
-      result: []
+      res: []
   - name: traverse
     traverse:
-      array: [1, 2, 3, 4, 5]
+      loop: [1, 2, 3, 4, 5]
       varName: item
       actions:
       - setvars:
-          result:
-            $js: "result.push(item + 1); result"
+          _result:
+            $js: "res.push(item + 1); res"
   - name: testing
     assert:
       $expressions:
-      - "{{ result[4] == 6 }}"
+      - "{{ res[4] == 6 }}"
+  result:
+      returned: "$jq:.res"
 
 - name: example.traverse.series.2
   description: Workflow to demonstrate simple for loop with in-series processing and an exit conditional to break the loop
@@ -27,7 +29,7 @@ workflows:
       result: []
   - name: traverse
     traverse:
-      array: "$jq:[range(0;100)]"
+      loop: "$jq:[range(0;100)]"
       varName: item
       exitConditional: "$jq:.result | length >= 10"
       actions:
@@ -47,7 +49,7 @@ workflows:
       result: []
   - name: traverse
     traverse:
-      array: "$jq:[range(0;100)]"
+      loop: "$jq:[range(0;2)]"
       varName: item
       loopCheck: Any
       actions:
@@ -58,6 +60,25 @@ workflows:
     assert:
       $expressions:
       - "$jq:.result | length == 1"
+
+- name: example.traverse.series.4
+  description: Workflow to demonstrate traverse calling another workflow
+  actions:
+  - name: traverse
+    traverse:
+      loop: [10, 20]
+      varName: item
+      actions:
+      - name: workflow
+        workflow: example.traverse.series.1
+        args:
+          item: "{{item}}"
+        store: result2
+      - name: return
+        return: "$jq:.result2"
+      store: tresult
+  result:
+    finalresult: "$jq:.tresult"
 
 - name: example.traverse.parallel.1
   description: >
@@ -74,7 +95,7 @@ workflows:
       result: []
   - name: traverse
     traverse:
-      array: "$jq:[range(5;0;-1)]"   # should result in [5, 4, 3, 2, 1]
+      loop: "$jq:[range(5;0;-1)]"   # should result in [5, 4, 3, 2, 1]
       varName: item
       indexName: index
       parallel: true
@@ -115,7 +136,7 @@ workflows:
       result: []
   - name: traverse
     traverse:
-      array: "$jq:[range(1;6)]"   # Should result in [1,2,3,4,5]
+      loop: "$jq:[range(1;6)]"   # Should result in [1,2,3,4,5]
       varName: item
       indexName: index
       parallel: 3
@@ -153,7 +174,7 @@ workflows:
         jsonParse: true
   - name: traverse
     traverse:
-      array: "$jq:[range(5;0;-1)]"   # Should result in [5,4,3,2,1]
+      loop: "$jq:[range(5;0;-1)]"   # Should result in [5,4,3,2,1]
       varName: item
       parallel: 3
       actions:
@@ -178,3 +199,72 @@ workflows:
       $expressions:
       - "$jq: .result == [6,5,4,3,2]"
       - "{{ (end - start > 0.5) and (end - start < 0.7) }}"
+
+- name: example.traverse.while.1
+  description: >
+    While loop demonstration using series
+  actions:
+  - name: setvars
+    setvars:
+      start:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      counter: 0
+  - name: traverse
+    traverse:
+      loop: true
+      varName: item
+      exitConditional: "$jq:.counter >= 11"
+      actions:
+      - name: set var
+        setvars:
+          counter: "$jq: .counter + 1"
+      store: result
+  - name: end
+    setvars:
+      end:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      diff: '$jq:.end - .start'
+  - name: testing
+    assert:
+      $expressions:
+      - "$jq: .counter == 11"
+      - "{{ (end - start > 0) and (end - start < 0.5) }}"
+
+- name: example.traverse.while.2
+  description: >
+    While loop demonstration that gets stopped forcefully
+  actions:
+  - name: setvars
+    setvars:
+      start:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      counter: 0
+  - name: traverse
+    traverse:
+      loop: true
+      varName: item
+      exitConditional: "$jq:.counter >= 110000"
+      actions:
+      - name: set var
+        setvars:
+          counter: "$jq: .counter + 1"
+      store: result
+  - name: alt
+    alt:
+      ok: Terminated forecefully
+  - name: end
+    setvars:
+      end:
+        $js: "Date.now() / 1000"
+        jsonParse: true
+      diff: '$jq:.end - .start'
+  - name: testing
+    assert:
+      $expressions:
+      - >-
+        {% set regexp = r/ERROR.*Too fast while loop execution/ %}
+        {{ regexp.test($error) }}
+      - "{{ (end - start < 5) }}"

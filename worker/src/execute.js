@@ -132,6 +132,7 @@ export const executeWorkflow = (workflowName, args = {}, level = 1) => {
 }
 
 export const execActions = (actions, state, locals, traversals) => {
+  actions = JSON.parse(JSON.stringify(actions))
   const setAction = (ret, action) => {
     locals.action = action
     return ret

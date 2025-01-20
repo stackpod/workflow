@@ -3,6 +3,8 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { readFileSync, writeFileSync } from "node:fs"
 import chalk from "chalk"
+import { default as crocks } from "crocks"
+const { isFunction } = crocks
 
 export const matchValue = (expected, actual) => {
   if (R.is(String, actual) && R.is(String, expected)) {
@@ -133,6 +135,7 @@ export const fetched = (args = {}) => {
       body,
       headers,
       redirect,
+      dispatcher: args.request.dispatcher,
       signal: args.request.timeout ? AbortSignal.timeout(args.request.timeout) : undefined
     })
 
@@ -154,7 +157,28 @@ export const fetched = (args = {}) => {
               }
             }
             catch (err) {
-              return reject(new Error(`ERROR: fetch had errors while parsing response`, { cause: err }))
+              return reject(new Error(`ERROR: fetch had errors while parsing response` + JSON.stringify({
+                statusCode: resp.status,
+                statusText: resp.statusText,
+                url: resp.url,
+                body: buf.toString(),
+                headers: resp.headers,
+              }), { cause: err }))
+            }
+
+            if (resp.status > 299) {
+              if (!args.response.acceptAllHTTPStatusCodes) {
+                return reject(new Error(`ERROR: Status code is not 200`, {
+                  cause: JSON.stringify({
+                    statusCode: resp.status,
+                    statusText: resp.statusText,
+                    headers: resp.headers,
+                    url: resp.url,
+                    raw: buf,
+                    body: ret
+                  })
+                }))
+              }
             }
 
             return resolve({
@@ -244,8 +268,26 @@ export const createLocals = (workflowName, level = 1) => {
   }
 }
 
-export const sleep = (timeout) => {
+let timeoutIds = {}
+
+export const sleep = (timeout, setCancel) => {
+  const clearTimeoutId = (id) => {
+    clearTimeout(id)
+    delete timeoutIds[id]
+  }
   return new Promise((resolve) => {
-    setTimeout(() => resolve(timeout), timeout)
+    let id = setTimeout(() => {
+      clearTimeoutId(id)
+      resolve()
+    }, timeout)
+    timeoutIds[id] = 1
+    if (isFunction(setCancel)) {
+      setCancel(() => clearTimeoutId(id))
+    }
   })
+}
+
+export const cancelAllSleeps = () => {
+  Object.keys(timeoutIds).map(clearTimeout)
+  timeoutIds = []
 }

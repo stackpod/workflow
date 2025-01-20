@@ -10,6 +10,12 @@ const cr = chalk.red
 const cg = chalk.green
 
 export const traverseAction = (state, locals, traversals) => {
+  return Box()
+    .chain(() => Box.modifyState(() => state, undefined))
+    .chain(async () => await _traverseAction(state, locals, traversals))
+}
+
+export const _traverseAction = async (state, locals, traversals) => {
   let workflowName = locals.workflowName
   let action = locals.action
 
@@ -38,6 +44,7 @@ export const traverseAction = (state, locals, traversals) => {
 
   const loopFn = (items) =>
     Box.Ok(items)
+      .chain(items => Box.modifyState(() => state, items))
       .chain((loop) => execExpression("loop", loop, state, locals, traversals))
       .traverse(
         async (item, index) => {
@@ -78,20 +85,21 @@ export const traverseAction = (state, locals, traversals) => {
     let cnt = 0
     let start = Date.now()
     while (true) {
-      let box = loopFn(items)
+      let box = await loopFn(items).runPromise(state)
       if (shouldExit || Box.isErr(box)) return box
-      if (cnt > 1000) {
-        if (Date.now() - start < 10000) return Box.Err(`ERROR: Too fast while loop execution. Number of executions cnt} since ${start}`)
+      if (cnt >= 100) {
+        if (Date.now() - start < 2000) return Box.Err(`ERROR: Too fast while loop execution. Number of executions ${cnt} since ${Date.now() - start} last millisecs`)
         cnt = 0
         start = Date.now()
       }
+      cnt++
     }
   }
   else {
     return loopFn(action.traverse.loop || action.traverse.array)
       .map(ret => {
-        if (action.store) {
-          locals.vars[action.store] = ret
+        if (action.traverse.store) {
+          locals.vars[action.traverse.store] = ret
         }
         return ret
       })
