@@ -1,0 +1,18 @@
+FROM oven/bun:alpine
+
+RUN apk add jq curl bash tzdata
+
+RUN mkdir -p /app/src
+
+COPY engine/package.json /app/package.json
+COPY engine/bun.lockb /app/bun.lockb
+COPY engine/tsconfig.json /app/
+WORKDIR /app
+
+RUN cd /app && bun install
+
+COPY engine/src /app/src/
+RUN rm -f /app/src/workflow_schema.yaml
+COPY worker/src/lib/workflow_schema.yaml /app/src/workflow_schema.yaml
+
+ENTRYPOINT ["bun", "run", "./src/index.ts"]

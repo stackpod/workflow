@@ -16,10 +16,10 @@ import { createLocals, ErrorToString } from "../utils.js"
  *  attachments: one or more attachments
  *  profile:  SMTP profile
  */
-export const sendEmailWorkflow = (args, level) => {
+export const sendEmailWorkflow = (execId, args, level) => {
   let state
 
-  let locals = createLocals("core.sendemail", level)
+  let locals = createLocals("core.sendemail", execId, level)
 
   const setTransporter = () => {
     let transporter

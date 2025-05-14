@@ -2,6 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import nunjucks from "nunjucks"
 import chalk from "chalk"
+import { dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -28,7 +29,7 @@ export const evalJinja = (key, value, state, locals, traversals) => {
   let action = locals.action
 
   const logresult = (res) => {
-    console.log(`${locals.l2s(4)}DEBUG Jinja Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${cy(JSON.stringify(res))}`)
+    dblog(locals, `${locals.l2s(4)}DEBUG Jinja Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${cy(JSON.stringify(res))}`)
     return res
   }
 

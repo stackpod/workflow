@@ -1,0 +1,99 @@
+---
+workflows:
+- name: example.aborting.workflow.1
+  description: This is the called workflow
+  actions:
+  - name: start
+    setvars:
+      babort: yes
+  - name: abort
+    abort: "The workflow is aborted"
+
+- name: example.abort.calling.workflow.1
+  description: This is the calling workflow
+  actions:
+  - name: set vars
+    setvars:
+      var1: 1
+  - name: calling workflow 1
+    workflow: example.aborting.workflow.1
+    args:
+      vars: "{{ var1 }}"
+    store: result
+  - name: alt - should not be executed
+    alt:
+      ok: "This should not be executed"
+  - name: set vars
+    setvars:
+      var1: 2
+  - name: testing the result
+    assert:
+      var1: 1
+
+- name: example.ending.workflow.1
+  description: This is the called workflow that ends with Error
+  actions:
+  - name: start
+    setvars:
+      bend: yes
+  - name: end
+    end:
+      error: "Ending with Error={{ bend }}"
+  - name: after end - should not be run
+    setvars:
+      bend: no
+  - name: alt - should not be executed
+    alt:
+      ok: "This should not be executed"
+  result: "{{ bend }}"
+
+- name: example.end.calling.workflow.1
+  description: This is the calling workflow for end
+  actions:
+  - name: set vars
+    setvars:
+      var1: 1
+  - name: calling workflow 1
+    workflow: example.ending.workflow.1
+    args:
+      vars: "{{ var1 }}"
+    store: result
+  - name: set vars
+    setvars:
+      var1: 2
+  - name: testing the result
+    assert:
+      var1: 2
+
+- name: example.ending.workflow.2
+  description: This is the called workflow that ends with Ok
+  actions:
+  - name: start
+    setvars:
+      bend: yes
+  - name: end
+    end:
+      ok: "{{ bend }}"
+  - name: after end - should not be run
+    setvars:
+      bend: no
+  result: "{{ bend }}"
+
+- name: example.end.calling.workflow.2
+  description: This is the calling workflow for end that ends with Ok
+  actions:
+  - name: set vars
+    setvars:
+      var1: 1
+  - name: calling workflow 2
+    workflow: example.ending.workflow.2
+    args:
+      vars: "{{ var1 }}"
+    store: result
+  - name: set vars
+    setvars:
+      var1: 2
+  - name: testing the result
+    assert:
+      var1: 2
+      result: yes

@@ -5,7 +5,7 @@ import { createLocals, ErrorToString, safeFetched } from "../utils.js"
 import { execExpression } from "../execute.js"
 import { constructArgs } from "../actions/actions.js"
 
-export const restApiWorkflow = (args, level) => {
+export const restApiWorkflow = (execId, args, level) => {
   let state
   args.request = args._request
   args.response = args._response
@@ -17,7 +17,7 @@ export const restApiWorkflow = (args, level) => {
     delete args.request.allowUntrustedCertificates
   }
 
-  let locals = createLocals("core.restapi", level)
+  let locals = createLocals("core.restapi", execId, level)
 
   return Box.getState()
     .map(_state => { state = _state; return undefined })

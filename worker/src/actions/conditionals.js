@@ -2,6 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { execActions, execExpression, execute } from "../execute.js"
 import chalk from "chalk"
+import { dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -13,7 +14,7 @@ export const conditionalsAction = (state, locals, traversals) => {
   let action = locals.action
 
   const logresult = (err, idx) => (res) => {
-    console.log(`${locals.l2s(4)}DEBUG Conditionals Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Index: ${idx} Result:${err ? cr(res) : cy(JSON.stringify(res))}`, res)
+    dblog(locals, `${locals.l2s(4)}DEBUG Conditionals Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Index: ${idx} Result:${err ? cr(res) : cy(JSON.stringify(res))}`, res)
     return res
   }
 

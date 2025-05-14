@@ -1,7 +1,7 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import chalk from "chalk"
-import { ErrorToString, safeJsonParse, safeSpawn } from "../utils.js"
+import { ErrorToString, safeJsonParse, safeSpawn, dblog } from "../utils.js"
 import path from "node:path"
 
 const cm = chalk.magenta
@@ -18,7 +18,7 @@ export const pythonAction = (state, locals, traversals) => {
   else if (R.is(Object, action.python) && action.python.inline) code = action.python.inline
 
   const logresult = (err) => (res) => {
-    console.log(`${locals.l2s(4)}DEBUG python Workflow:${cm(workflowName)} Action:${cm(action?.name || "python")} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
+    dblog(locals, `${locals.l2s(4)}DEBUG python Workflow:${cm(workflowName)} Action:${cm(action?.name || "python")} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
     return res
   }
 
@@ -63,7 +63,7 @@ print(ret)
     .chain(ret => {
       if (ret.stderr.length) return Box.Err(`ERROR: Exception during python execution Workflow: ${workflowName} Action:${action?.name || "python"}, ${ret.stdout + ret.stderr}`)
       else {
-        console.log(`${locals.l2s(4)} STDOUT from python program Workflow: ${workflowName} Action:${action?.name || "python"}: ${cg(ret.stdout.slice(0, ret.stdout.indexOf(separator)).trim())}`)
+        dblog(locals, `${locals.l2s(4)} STDOUT from python program Workflow: ${workflowName} Action:${action?.name || "python"}: ${cg(ret.stdout.slice(0, ret.stdout.indexOf(separator)).trim())}`)
         return Box.Ok(ret.stdout.slice(ret.stdout.indexOf(separator) + separator.length + 1).trim())
       }
     })

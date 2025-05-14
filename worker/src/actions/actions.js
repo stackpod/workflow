@@ -1,7 +1,8 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
-import { execExpression, executeWorkflow, identifyExpression } from "../execute.js"
+import { execExpression, executeWorkflow, identifyExpression, getActionType } from "../execute.js"
 import chalk from "chalk"
+import { dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -64,6 +65,15 @@ export const returnAction = (state, locals, traversals) => {
   }))
 }
 
+export const abortAction = (state, locals, traversals) => {
+  let action = locals.action
+  state.aborted = true
+  locals.aborted = true
+  dblog(locals, `${locals.l2s(2)}DEBUG: Action (${cy(getActionType(action))}) User Aborted execution for ${cm(locals.workflowName)}->${cm(action.name)}`, action.abort ? cr(action.abort) : cr("Aborted"))
+
+  return Box.Err(action.abort || "User Aborted")
+}
+
 export const loggerAction = (state, locals, traversals) => {
   let action = locals.action
   let box = Box.Ok()
@@ -71,7 +81,7 @@ export const loggerAction = (state, locals, traversals) => {
     box = box.chain(() => execExpression(key, value, state, locals, traversals))
   })
   return box.map(ret => {
-    console.log(`${locals.l2s(2)}${cy("LOGGER:")} for "${cm(locals.workflowName)}->${cm(action.name)}" --> ${ret}`)
+    dblog(locals, `${locals.l2s(2)}${cy("LOGGER:")} for "${cm(locals.workflowName)}->${cm(action.name)}" --> ${ret}`)
     return ret
   })
 }
@@ -87,6 +97,74 @@ export const sleepAction = (state, locals, traversals) => {
 }
 
 export const constructArgs = (params, state, locals, traversals) => {
+  let args = {}
+  let box = Box.Ok(args)
+    .chain(args => Box.modifyState(() => state, args))
+
+  const handleObject = (key, val, args, idx = null) => {
+    if (R.is(Object, val) && !R.is(Array, val)) {
+      if (key && key.startsWith("__")) {
+        args[key.slice(2)] = val
+        return
+      }
+      if (key) {
+        let { act } = identifyExpression(val)
+        if (act != "none") {
+          box = box.chain(() => execExpression(key, val, state, locals, traversals).map(_v => {
+            args[key] = _v
+            return args
+          }))
+        }
+        else {
+          if (!args[key]) args[key] = {}
+          Object.entries(val).map(([k, v]) => handleObject(k, v, args[key]))
+        }
+      }
+      else {
+        if (!args[idx]) args[idx] = {}
+        Object.entries(val).map(([k, v]) => handleObject(k, v, args[idx]))
+
+      }
+    }
+    else if (R.is(Array, val)) {
+      if (key) {
+        args[key] = []
+        val.forEach((v, _idx) => handleObject(null, v, args[key], _idx))
+        return
+      }
+      else {
+        args[idx] = []
+        val.forEach((v, _idx) => handleObject(null, v, args[idx], _idx))
+        return
+      }
+    }
+    else if (R.is(String, val) && val.startsWith("__") && val.endsWith("__")) {
+      if (key) {
+        args[key] = val.slice(2, -2)
+      }
+      else {
+        args[idx] = val.slice(2, -2)
+      }
+    }
+    else {
+      if (key) {
+        box = box.chain(() => execExpression(key, val, state, locals, traversals).map(_v => {
+          args[key] = _v
+          return args
+        }))
+      }
+      else {
+        args[idx] = val
+      }
+    }
+  }
+
+  if (R.is(Object, params)) {
+    Object.entries(params).map(([key, val]) => handleObject(key, val, args))
+  }
+  return box.map(() => args)
+}
+export const constructArgs1 = (params, state, locals, traversals) => {
   let args = {}
   let box = Box.Ok(args)
     .chain(args => Box.modifyState(() => state, args))
@@ -121,8 +199,9 @@ export const constructArgs = (params, state, locals, traversals) => {
 
 export const workflowAction = (state, locals, traversals) => {
   let action = locals.action
+  console.log("executeWorkflow", action.args)
   let box = constructArgs(action.args, state, locals, traversals)
-  return box.chain(args => executeWorkflow(action.workflow, args, locals.level + 1))
+  return box.chain(args => executeWorkflow(action.workflow, locals.execId, args, locals.level + 1))
     .map(ret => {
       let store = action.store || "result"
       locals.vars[store] = ret

@@ -4,6 +4,8 @@ import * as R from "ramda"
 import { readFileSync, writeFileSync } from "node:fs"
 import chalk from "chalk"
 import { default as crocks } from "crocks"
+import { format } from "node:util"
+import { addWorkflowLogs, endWorkflowExec, envConfig } from "./lib/dbindex.js"
 const { isFunction } = crocks
 
 export const matchValue = (expected, actual) => {
@@ -250,15 +252,16 @@ export const ErrorToString = (error, stack = false) => {
 
 let runningId = 0
 let retSymbol = Symbol("return")
-export const createLocals = (workflowName, level = 1) => {
+export const createLocals = (workflowName, execId, level = 1) => {
   runningId += 1
   const f = (id) => (spaces = 0) => {
     let d = new Date().toISOString()
     return R.range(0, (level == 1 ? 2 : ((level - 1) * 4 + 2)) + spaces).map(() => " ").join("") +
-      chalk.cyan(`id:${id} ${chalk.blue(d)} `)
+      chalk.cyan(`id:${id} ${execId} ${chalk.blue(d)} `)
   }
   return {
     vars: {},
+    execId,
     workflowName,
     level,
     id: runningId,
@@ -290,4 +293,79 @@ export const sleep = (timeout, setCancel) => {
 export const cancelAllSleeps = () => {
   Object.keys(timeoutIds).map(clearTimeout)
   timeoutIds = []
+}
+
+export const getExecId = (src, workflowName) => {
+  let dt = new Date()
+  const f2d = new Intl.NumberFormat("en", { minimumIntegerDigits: 2 }).format
+  const f3d = new Intl.NumberFormat("en", { minimumIntegerDigits: 3 }).format
+  return global.workerName + "_" + format("%d", dt.getFullYear()) + f2d(dt.getMonth() + 1) + f2d(dt.getDate()) +
+    "T" + f2d(dt.getHours()) + f2d(dt.getMinutes()) + f2d(dt.getSeconds()) +
+    f3d(dt.getMilliseconds()) +
+    "_" + src + "_" + workflowName
+}
+
+const pdblogs = {}
+
+var dbi = 1
+// Lets fire and forget
+export const dblog = (locals, log) => {
+  if (!envConfig?.elasticsearch?.url) return
+
+  if (!pdblogs[locals.execId]) pdblogs[locals.execId] = { logs: [], inp: false }
+  pdblogs[locals.execId].logs.push(log)
+
+  const removeOne = (eid) => {
+    if (pdblogs[eid]) {
+      pdblogs[eid].logs.shift()
+      pdblogs[eid].inp = false
+      if (pdblogs[eid].logs.length === 0) {
+        setTimeout(() => {
+          if (pdblogs[eid]) {
+            if (!pdblogs[eid].logs) delete pdblogs[eid]
+            else if (pdblogs[eid].logs.length === 0) delete pdblogs[eid]
+          }
+        }, 1000)
+      }
+    }
+  }
+
+  const _dblog = (_idx) => {
+    let eids = Object.keys(pdblogs)
+    if (eids.length === 0) return
+
+    for (let i in eids) {
+      let eid = eids[i]
+      if (pdblogs[eid].inp) continue
+      if (pdblogs[eid].logs.length === 0) continue
+      pdblogs[eid].inp = true
+      let _log = pdblogs[eid].logs[0]
+      addWorkflowLogs(eid, _log)
+        .then(ret => {
+          if (ret.status == "error")
+            console.log("FAILED to addWorkflowLogs", ret)
+          removeOne(eid)
+          _dblog(dbi)
+        })
+        .catch(err => {
+          console.log(`${_idx} ${locals.execId} Unable to push log line into Database ${log}, Error:${err.message} ${err.stack}`)
+          removeOne(eid)
+          _dblog(dbi)
+        })
+    }
+  }
+  _dblog(dbi)
+}
+
+// for end, we need to wait until there is no pending logs
+export const endWorkflow = async (execId, status, result, error) => {
+
+  let st = new Date()
+  while (true) {
+    if (!pdblogs[execId]) break
+    if (new Date() - st > 10000) break
+    await sleep(10)
+  }
+
+  let ret = await endWorkflowExec(execId, status, result, error, st)
 }

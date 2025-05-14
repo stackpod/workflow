@@ -1,4 +1,4 @@
-import { statSync, readFileSync } from "node:fs"
+import { statSync, readFileSync, existsSync } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { Box } from "@stackpod/box"
@@ -6,6 +6,7 @@ import * as R from "ramda"
 import Ajv2020 from "ajv/dist/2020.js"
 import yaml from "js-yaml"
 import path from "node:path"
+import { getWorkflows, envConfig } from "./lib/dbindex.js"
 
 export const isDir = (pathname) => {
   let lstat = statSync(pathname)
@@ -78,6 +79,7 @@ export const loadWorkflows = (pathname, opts = {}) => {
       return Box.Err(`Error parsing yaml in ${resp.filename}, ${err.message}`)
     }
     let validate = ajv2020.compile(schema)
+    // console.log("file yaml", Object.keys(resp.yaml), resp.yaml)
     if (validate(resp.yaml)) return Box.Ok({ filename: resp.filename, yaml: resp.yaml })
     return Box.Err(`Error validating ${resp.filename}, ${JSON.stringify(validate.errors)}`)
   }
@@ -86,7 +88,18 @@ export const loadWorkflows = (pathname, opts = {}) => {
     return Box.Ok({ filename: file, contents: await readFile(file) })
   }
 
-  const mergeWorkflows = (yamls) => {
+  const loadDbWorkflows = (yamls) => {
+    return Box.Ok()
+      .chain(async () => {
+        if (!(envConfig?.elasticsearch?.url)) return Box.Ok({ yamls, dbyamls: [] })
+        let ret = await getWorkflows()
+        if (ret.status != "ok") return Box.Ok({ yamls, dbyamls: [] })
+        let dbyamls = ret.workflows.map(wf => wf.workflow)
+        return Box.Ok({ yamls, dbyamls })
+      })
+  }
+
+  const mergeWorkflows = ({ yamls, dbyamls }) => {
     let wfs = {}
     let err = ""
     yamls.map(y => {
@@ -97,7 +110,20 @@ export const loadWorkflows = (pathname, opts = {}) => {
         wfs[w.name] = w
       })
     })
-    if (err.length) return Box.Err(err)
+    dbyamls.map(w => {
+      let validate = ajv2020.compile(schema)
+      if (!validate({ workflows: [w] })) {
+        err += `Error validating ${w?.name}, ${JSON.stringify(validate.errors)}`
+        return
+      }
+      if (opts.ignoreErrors === false && wfs[w.name]) {
+        // err += `Workflow ${w.name} from database already present and is a duplicate\n`
+        console.log(`Workflow ${w.name} from database already present and is a duplicate. Ignoring it\n`)
+        return
+      }
+      wfs[w.name] = w
+    })
+    if (err.length) return Box.Err(`Accumulated Errors - ${err}`)
     return Box.Ok(wfs)
   }
 
@@ -107,8 +133,16 @@ export const loadWorkflows = (pathname, opts = {}) => {
       .chain(mergeWorkflows)
 
   return Box.Ok(pathname)
-    .chain(p => isDir(p) ? walkFiles(p, { filterFileNames: ".(yaml|yml)$" }) : Box.Ok([p]))
+    .chain(p =>
+      existsSync(p)
+        ? isDir(p)
+          ? walkFiles(p, { filterFileNames: ".(yaml|yml)$", recursive: true })
+          : Box.Ok([p])
+        : Box.Ok([])
+    )
     .traverse(_readFile, opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
     .traverse(parseYaml, opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
+    .chain(loadDbWorkflows)
     .chain(mergeWorkflows)
 }
+

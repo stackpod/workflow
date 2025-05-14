@@ -1,7 +1,7 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import chalk from "chalk"
-import { ErrorToString } from "../utils.js"
+import { ErrorToString, dblog } from "../utils.js"
 import vm from "node:vm"
 import Module from "node:module"
 const require = Module.createRequire(import.meta.url)
@@ -20,7 +20,7 @@ export const jsAction = (state, locals, traversals) => {
   else if (R.is(Object, action.js) && action.js.inline) code = action.js.inline
 
   const logresult = (err) => (res) => {
-    console.log(`${locals.l2s(4)}DEBUG js action Workflow:${cm(workflowName)} Action:${cm(action?.name || "js")} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
+    dblog(locals, `${locals.l2s(4)}DEBUG js action Workflow:${cm(workflowName)} Action:${cm(action?.name || "js")} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
     return res
   }
 

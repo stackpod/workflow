@@ -17,10 +17,10 @@ import { simpleParser } from "mailparser"
  *  attachments: one or more attachments
  *  profile:  IMAP profile
  */
-export const getEmailWorkflow = (args, level) => {
+export const getEmailWorkflow = (execId, args, level) => {
   let state
 
-  let locals = createLocals("core.getemail", level)
+  let locals = createLocals("core.getemail", execId, level)
 
   const getImapClient = () => {
     let imapClient

@@ -3,7 +3,7 @@ import * as R from "ramda"
 import { default as crocks } from "crocks"
 const { isFunction } = crocks
 import { executeWorkflow } from "../execute.js"
-import { createLocals, ErrorToString, sleep } from "../utils.js"
+import { createLocals, ErrorToString, getExecId, sleep, dblog } from "../utils.js"
 import amqp from "amqplib"
 import chalk from "chalk"
 
@@ -18,7 +18,11 @@ const constructAmqpUrl = (args, profile) => {
   if (profile.authUser && profile.authPassword) url += `${profile.authUser}:${profile.authPassword}@`
   url += (profile.host || "localhost")
   if (profile.port) url += ":" + profile.port
-  return url
+
+  // RabbitMQ version 4.1.0 is not accepting a frameMax value of 4096
+  // which is the amqplib's default. So we force the frameMax to be a much
+  // higher value
+  return url + "?frameMax=131072"
 }
 
 const constructBuffer = (message) => {
@@ -40,6 +44,10 @@ const constructBuffer = (message) => {
     }
     catch (err) { }
   }
+  else if (message && R.is(Object, message)) {
+    // Let us try and see if it is JSON string
+    buf = Buffer.from(JSON.stringify(message))
+  }
   return buf
 }
 
@@ -53,11 +61,11 @@ const constructProfile = (state, args) => {
   return [null, profile]
 }
 
-export const rabbitMqSend = (args, level) => {
+export const rabbitMqSend = (execId, args, level) => {
   let state
   let connection
   let channel
-  let locals = createLocals("core.rabbitmq.send", level)
+  let locals = createLocals("core.rabbitmq.send", execId, level)
 
   const sendToQueue = async () => {
 
@@ -98,9 +106,9 @@ export const rabbitMqSend = (args, level) => {
     .bimap(ErrorToString, R.identity)
 }
 
-export const rabbitMqPublish = (args, level) => {
+export const rabbitMqPublish = (execId, args, level) => {
   let state
-  let locals = createLocals("core.rabbitmq.publish", level)
+  let locals = createLocals("core.rabbitmq.publish", execId, level)
   let connection
   let channel
 
@@ -143,7 +151,7 @@ export const rabbitMqPublish = (args, level) => {
     .bimap(ErrorToString, R.identity)
 }
 
-export const rabbitMqRecv = (args, level) => {
+export const rabbitMqRecv = (execId, args, level) => {
   let state
 
   let cancelled = false
@@ -151,17 +159,17 @@ export const rabbitMqRecv = (args, level) => {
   let closed = false
   let channel
   let connection
-  let locals = createLocals("core.rabbitmq.recv", level)
+  let locals = createLocals("core.rabbitmq.recv", execId, level)
 
   const callback = async (msg) => {
     if (msg) {
       let message = null
       try { message = msg.content.toString() } catch (err) { }
       if (message === "__STOP__") {
-        console.log(`${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} received STOP message`)
+        dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} received STOP message`)
         cancelled = true
       }
-      console.log(`${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} recvd message. Size: ${cy(msg.content.length)}`)
+      dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} recvd message. Size: ${cy(msg.content.length)}`)
       let result = {
         message,
         content: msg.content,
@@ -172,11 +180,15 @@ export const rabbitMqRecv = (args, level) => {
         timestamp: msg.properties.timestamp
       }
       await Box.Ok()
-        .chain(() => executeWorkflow(args.workflow, result, level + 1))
+        .chain(() => {
+          // We don't create new execId, but use the existing execId only
+          // let execId = getExecId("rabbitmq", args.workflow)
+          return executeWorkflow(args.workflow, execId, result, level + 1)
+        })
         .bimap(err => {
-          console.log(`${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} had errors. Error: ${cr(err)}`)
+          dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} had errors. Error: ${cr(err)}`)
         }, ret => {
-          console.log(`${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} completed Ok. Sending Ack. Return: ${cy(ret)}`)
+          dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.recv ${cy("Workflow")} ${cm(args.workflow)} completed Ok. Sending Ack. Return: ${cy(ret)}`)
           channel.ack(msg)
         })
         .runPromise(state)
@@ -233,7 +245,7 @@ export const rabbitMqRecv = (args, level) => {
     .bimap(ErrorToString, R.identity)
 }
 
-export const rabbitMqSubscribe = (args, level) => {
+export const rabbitMqSubscribe = (execId, args, level) => {
   let state
 
   let cancelled = false
@@ -241,17 +253,17 @@ export const rabbitMqSubscribe = (args, level) => {
   let closed = false
   let channel
   let connection
-  let locals = createLocals("core.rabbitmq.subscribe", level)
+  let locals = createLocals("core.rabbitmq.subscribe", execId, level)
 
   const callback = async (msg) => {
     if (msg) {
       let message = null
       try { message = msg.content.toString() } catch (err) { }
       if (message === "__STOP__") {
-        console.log(`${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} received STOP message`)
+        dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} received STOP message`)
         cancelled = true
       }
-      console.log(`${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} recvd message. Size: ${cy(msg.content.length)}`)
+      dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} recvd message. Size: ${cy(msg.content.length)}`)
       let result = {
         message,
         content: msg.content,
@@ -262,11 +274,14 @@ export const rabbitMqSubscribe = (args, level) => {
         timestamp: msg.properties.timestamp
       }
       await Box.Ok()
-        .chain(() => executeWorkflow(args.workflow, result, level + 1))
+        .chain(() => {
+          let execId = getExecId("rabbitmq", args.workflow)
+          executeWorkflow(args.workflow, execId, result, level + 1)
+        })
         .bimap(err => {
-          console.log(`${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} had errors. Error: ${cr(err)}`)
+          dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} had errors. Error: ${cr(err)}`)
         }, ret => {
-          console.log(`${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} completed Ok. Sending Ack. Return: ${cy(ret)}`)
+          dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cy("Workflow")} ${cm(args.workflow)} completed Ok. Sending Ack. Return: ${cy(ret)}`)
           channel.ack(msg)
         })
         .runPromise(state)
@@ -313,7 +328,7 @@ export const rabbitMqSubscribe = (args, level) => {
     try {
       let out = await channel.consume(q.queue, _callback, { noAck: false })
       consumerTag = out.consumerTag
-      console.log(`${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cm(args.workflow)} consumer tag setup ${cy(consumerTag)}`)
+      dblog(locals, `${locals.l2s()}DEBUG: core.rabbitmq.subscribe ${cm(args.workflow)} consumer tag setup ${cy(consumerTag)}`)
     }
     catch (err) {
       return Box.Err(`ERROR: core.rabbitmq.subscribe Unable to setup consumer, ${ErrorToString(err)}`)

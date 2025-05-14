@@ -8,10 +8,10 @@ const cy = chalk.yellow
 const cr = chalk.red
 const cg = chalk.green
 
-export const altAction = (value, state, locals, traversals) => {
+export const endAction = (state, locals, traversals) => {
   let workflowName = locals.workflowName
   let action = locals.action
-  locals.vars["$error"] = value
+  locals.ended = true
   dblog(locals, `${locals.l2s(2)}DEBUG: Action (${cy(getActionType(action))}) Start for ${cm(workflowName)}->${cm(action.name)}`)
 
   const logresult = (res, err) => {
@@ -19,8 +19,8 @@ export const altAction = (value, state, locals, traversals) => {
     return res
   }
 
-  if (action.alt.ok) {
-    return execExpression("alt", action.alt.ok, state, locals, traversals)
+  if (action.end.ok) {
+    return execExpression("end", action.end.ok, state, locals, traversals)
       .map(ret => {
         if (action.store) {
           locals.vars[action.store] = ret
@@ -29,12 +29,14 @@ export const altAction = (value, state, locals, traversals) => {
       })
       .bimap(ret => logresult(ret, ret), ret => logresult(ret))
   }
-  else if (action.alt.error)
-    return execExpression("alt", action.alt.error, state, locals, traversals).chain(x => Box.Err(x))
+  else if (action.end.error)
+    return execExpression("end", action.end.error, state, locals, traversals).chain(x => Box.Err(x))
       .bimap(ret => logresult(ret, ret), ret => logresult(ret))
   else {
-    ret = `Unsupported params for <alt> action. Should be One of 'ok' or 'error'`
+    ret = `Unsupported params for <end> action. Should be One of 'ok' or 'error'`
     logresult(ret, ret)
     return Box.Err(ret)
   }
+
+  // TODO about $python and $js
 }

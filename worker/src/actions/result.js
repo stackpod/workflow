@@ -2,6 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { execExpression } from "../execute.js"
 import chalk from "chalk"
+import { dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -12,7 +13,7 @@ export const handleResult = (state, locals, traversals) => {
   let workflowName = locals.workflowName
 
   const logresult = (res) => {
-    console.log(`${locals.l2s(2)}DEBUG: ${cy("result")} for ${cm(workflowName)} result:`, cy(JSON.stringify(res)))
+    dblog(locals, `${locals.l2s(2)}DEBUG: ${cy("result")} for ${cm(workflowName)} result:`, cy(JSON.stringify(res)))
     return res
   }
   if (!state.workflows[workflowName].result) {

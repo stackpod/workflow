@@ -91,7 +91,7 @@ $defs:
         required: [ "end" ]
       - type: object
         properties:
-          abort: { "type": "object" }
+          abort: { "type": "string" }
         required: [ "abort" ]
       - type: object
         properties:
