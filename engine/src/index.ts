@@ -18,7 +18,7 @@ const app = new Elysia({ normalize: true })
     documentation: {
       info: {
         title: "Workflow Engine Documentation",
-        version: "0.23.0"
+        version: "0.24.0"
       },
       tags: [
         { name: "Exec", description: "Workflow Execution APIs" },

@@ -125,7 +125,7 @@ export const executeWorkflow = (workflowName, execId, args = {}, level = 1) => {
     return res
   }
 
-  console.log("executeWorkflow", `Start for ${workflowName}`, "locals", locals)
+  console.log("executeWorkflow", `Start for ${workflowName}`, "locals", locals, "args", args)
   dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} Start for ${cm(workflowName)} args:${cm(JSON.stringify(args))}`)
 
   return Box.getState()

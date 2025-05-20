@@ -58,3 +58,19 @@ workflows:
     assert:
       $expressions:
       - $jq: '.list_of_json_files|any(. == "package.json")'
+
+- name: example.js.simple.4
+  description: |
+    Workflow to demonstrate default requires. Config should have set 
+      javascript:
+        defaultRequires:
+        - moment
+  actions:
+  - name: moment
+    setvars:
+      timenow:
+        $js: 'moment.now()'
+  - name: testing
+    assert:
+      $expressions:
+      - $jq: '.timenow > 1747717210119'

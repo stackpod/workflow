@@ -11,7 +11,7 @@ const program = new Command()
 program
   .name("worker")
   .description("worker for workflow engine")
-  .version("0.23")
+  .version("0.24")
   .requiredOption("-n, --name <str>", "Name of the worker node, only short names like w1")
   .requiredOption("-e, --engineUrl <str>", "URL of the Engine without trailing slash ex: http://engine:3000")
   .requiredOption("-u, --myurl <str>", "URL of this work how Engine will access it ex: http://worker:3001")

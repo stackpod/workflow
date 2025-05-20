@@ -10,6 +10,10 @@ export const restApiWorkflow = (execId, args, level) => {
   args.request = args._request
   args.response = args._response
 
+  if (!args.request || !args.request?.url)
+    return Box.Err("core.restapi: No proper _request args")
+
+
   if (args.request.allowUntrustedCertificates) {
     args.request.dispatcher = new Agent({
       connect: { rejectUnauthorized: false }

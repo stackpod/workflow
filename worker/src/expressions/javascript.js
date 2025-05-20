@@ -10,6 +10,8 @@ const cm = chalk.magenta
 const cy = chalk.yellow
 const cr = chalk.red
 
+const defaultRequires = {}
+
 export const evalJavascript = (key, value, state, locals, traversals) => {
   let workflowName = locals.workflowName
   let action = locals.action
@@ -19,12 +21,25 @@ export const evalJavascript = (key, value, state, locals, traversals) => {
     return res
   }
 
+  if (Object.keys(defaultRequires).length === 0) {
+    if (state.config?.javascript?.defaultRequires && state.config.javascript.defaultRequires.length) {
+      state.config.javascript.defaultRequires.forEach(req => {
+        try {
+          defaultRequires[req] = require(req)
+        }
+        catch (err) { }
+      })
+
+    }
+  }
+
   const vars = {
     ...locals.vars,
     ...traversals,
     state: {
       ...state.wstate,
     },
+    ...defaultRequires,
     require,
     process
   }
