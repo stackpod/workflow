@@ -1,0 +1,89 @@
+---
+workflows:
+- name: example.alt.1
+  description: |
+    Involves alt and shows how to handle errors. Here alt will ignore the 404 errors
+    and continue. If alt was not there, then the setvars will not be executed.
+    It also shows that errors can be retrieved by $error variable. In addition, the
+    ok value of alt be stored in another variable.
+  actions:
+  - workflow: core.restapi
+    args:
+      _request:
+        url: https://www.google.com/unknownurl
+  - alt:
+      ok: "Ignore the google 404 error"
+      store: altret
+  - setvars:
+      hello: world
+  - assert:
+      $expressions:
+      - "{{ r/Ignore the google 404 error/.test(altret) }}"
+      - "{{ r/Status code is not 200/.test($error) }}"
+      - "{{ hello == 'world' }}"
+
+- name: example.alt.2
+  description: |
+    Involves alt and shows how to ADD better errors and continue the error path
+    Even though we have put assert, as of now, assert wont execute if there are errors.
+  actions:
+  - workflow: core.restapi
+    args:
+      _request:
+        url: https://www.google.com/unknownurl
+  - alt:
+      error: "Google returned 404. This is just a test for adding better error messages. Partial error follows: {{ $error.slice(0, 80) }}"
+  - setvars:
+      hello: world
+  - assert:
+      $expressions:
+      - "{{ r/Google returned 404/.test($error) }}"
+      - "{{ hello != 'world' }}"
+          
+- name: example.alt.3
+  description: |
+    Involves alt and shows how to do multiple actions IF there are errors
+    Here you set "alt.ok", then if error is set, then do arbitrary actions. Here we are just calling 
+    logger. And then setting the Err back with "error" action.
+    IF "error" action was not called, then the subsequent actions in the workflow will continue to be executed.
+    Calling "error" action will initiate a Err action and will stop the flow of the current workflow.
+
+  actions:
+  - setvars:
+      hello: world
+  - workflow: core.restapi
+    args:
+      _request:
+        url: https://www.google.com/unknownurl
+  - alt:
+      ok: "Google returned 404"
+      store: altret
+  - conditionals:
+    - condition: "{{ $error }}"   # This could also be {{ altret }}
+      actions:
+      - setvars:
+          partial: "{{ $error.slice(0, 10) }}"
+      - logger: "Error logger {{ $error }} hello={{hello}} "
+      - error: "{{ $error }}"
+  - setvars:
+      onError: I wont be set
+
+- name: example.alt.4
+  description: |
+    Involves alt and shows how to do multiple actions IF there are errors
+    This is similar to the above, but no need to have additionals conditionals as with example.alt.3
+  actions:
+  - setvars:
+      hello: world
+  - workflow: core.restapi
+    args:
+      _request:
+        url: https://www.google.com/unknownurl
+  - alt:
+      actions:
+      - setvars:
+          partial: "{{ $error.slice(0, 10) }}"
+      - logger: "Error logger {{ $error }} hello={{hello}} "
+      - error: "{{ $error }}"
+  - setvars:
+      onError: I wont be set
