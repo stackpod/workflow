@@ -42,3 +42,140 @@ properties:
       required:
         - profile
         - host
+  imap:
+    description: IMAP settings to receive email
+    type: array
+    items:
+      type: object
+      properties:
+        profile:
+          description: Name of the imap profile
+          type: string
+          minLength: 5
+          maxLength: 255
+          pattern: "^[A-Za-z0-9][A-Za-z0-9 -_.]+$"
+        description:
+          description: Description of the IMAP profile
+          type: string
+        host:
+          description: IMAP endpoint address. Just the hostname
+          type: string
+        port:
+          description: IMAP port. Default is 993
+          type: number
+        authUser:
+          description: Authentication User name. No default.
+          type: string
+        authPassword:
+          description: Authentication Password. No default.
+          type: string
+        archive:
+          description: Existing Folder to archive after getting the email
+          type: string
+      required:
+        - profile
+        - host
+        - authUser
+        - authPassword
+
+  rabbitmq:
+    description: Rabbitmq configuration
+    type: array
+    items:
+      type: object
+      properties:
+        profile:
+          description: Name of the rabbitmq profile
+          type: string
+          minLength: 5
+          maxLength: 255
+          pattern: "^[A-Za-z0-9][A-Za-z0-9 -_.]+$"
+        description:
+          description: Description of the rabbitmq profile
+          type: string
+        host:
+          description: Rabbitmq endpoint address. Just the hostname
+          type: string
+        port:
+          description: Rabbitmq port. Default is 5672
+          type: number
+        authUser:
+          description: Authentication User name. No default.
+          type: string
+        authPassword:
+          description: Authentication Password. No default.
+          type: string
+      required:
+        - profile
+        - host
+
+  logging:
+    description: Configuration for logging from workflow engine
+    type: object
+    properties:
+      level:
+        description: |
+          Level of the logging to the Database and to stdout.
+          none - will not log any info or debug logs, unless on errors
+          minimal - will log info / debug logs, but variable values wont be printed
+          concise - will log info / debug logs, with a concise value of variable values / result values etc.
+        type: string
+        enum: ["none", "minimal", "concise"]
+      concise:
+        description: |
+          Configuration for concise logging. ie logging.level is set to concise
+          default is:
+          - depthLevel: 1
+            maxKeys: 10
+            maxLength: 50
+          - depthLevel: 2
+            maxKeys: 5
+            maxLength: 20
+          - depthLevel: 3
+            maxKeys: 2
+            maxLength: 20
+        type: array
+        items:
+          type: object
+          properties:
+            depthLevel:
+              description: |
+                Depth level. 1 represents top level, 3 represents more deepest level
+                All settings for this array item will use this depth level
+              type: number
+              enum: [1, 2, 3]
+            maxKeys:
+              description: For objects / arrays, the total number of keys to log. For that particular depthLevel
+              type: number
+              minimum: 0
+              maximum: 100
+            maxLength:
+              description: For string / JSON.stringify - this is the max string length that will be logged.
+              type: number
+              minimum: 0
+              maximum: 10240
+      fileLogging:
+        description: Enable full logging of all variables to files in a circular manner
+        type: object
+        properties:
+          path:
+            description: |
+              If present and points to a valid file path, then this feature is enabled. Else disabled.
+              This should be pointting a directory, where the engine can write log files
+              Default value is null, so this is disabled.
+            type: string
+          prefix:
+            description: The prefix name of each of the log files written
+            type: string
+          maxFiles:
+            description: Maximum number of files to write. If it exceeds then, it will start overwriting from the first file
+            type: number
+            minimum: 2
+            maximum: 100
+          fileSize:
+            description: |
+              Size of each file. If it hits this size, then it will start writing to the next file. The size of the file
+              in MB
+            type: number
+            minimum: 10
+            maximum: 2048

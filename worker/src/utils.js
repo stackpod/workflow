@@ -1,12 +1,15 @@
 import child_process from "child_process"
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
-import { readFileSync, writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, appendFileSync } from "node:fs"
 import chalk from "chalk"
 import { default as crocks } from "crocks"
 import { format } from "node:util"
 import { addWorkflowLogs, endWorkflowExec, envConfig } from "./lib/dbindex.js"
+import path from "node:path"
 const { isFunction } = crocks
+import { configCache } from "./config.js"
+
 
 export const matchValue = (expected, actual) => {
   if (R.is(String, actual) && R.is(String, expected)) {
@@ -310,6 +313,7 @@ const pdblogs = {}
 var dbi = 1
 // Lets fire and forget
 export const dblog = (locals, log) => {
+  console.log(log)
   if (!envConfig?.elasticsearch?.url) return
 
   if (!pdblogs[locals.execId]) pdblogs[locals.execId] = { logs: [], inp: false }
@@ -359,6 +363,7 @@ export const dblog = (locals, log) => {
 
 // for end, we need to wait until there is no pending logs
 export const endWorkflow = async (execId, status, result, error) => {
+  if (!envConfig?.elasticsearch?.url) return
 
   let st = new Date()
   while (true) {
@@ -369,3 +374,167 @@ export const endWorkflow = async (execId, status, result, error) => {
 
   let ret = await endWorkflowExec(execId, status, result, error, st)
 }
+
+class CircularLogger {
+  constructor({ numFiles = 5, maxSizeBytes = 1024 * 1024 * 1024, logDir = './logs', baseFilename = 'log' }) {
+    this.numFiles = numFiles;
+    this.maxSizeBytes = maxSizeBytes;
+    this.logDir = logDir;
+    this.baseFilename = baseFilename;
+    this.stateFile = path.join(this.logDir, '.logstate.json');
+    this.currentFileIndex = 1;
+
+    if (!existsSync(this.logDir)) {
+      mkdirSync(this.logDir, { recursive: true });
+    }
+
+    this._loadState();
+  }
+
+  _getFilePath(index) {
+    return path.join(this.logDir, `${this.baseFilename}${index}.txt`);
+  }
+
+  _loadState() {
+    try {
+      const state = JSON.parse(readFileSync(this.stateFile, 'utf8'));
+      if (state.currentFileIndex >= 1 && state.currentFileIndex <= this.numFiles) {
+        this.currentFileIndex = state.currentFileIndex;
+      }
+    } catch (err) {
+      // No state file or corrupted – will initialize fresh
+      this._saveState();
+    }
+  }
+
+  _saveState() {
+    writeFileSync(this.stateFile, JSON.stringify({ currentFileIndex: this.currentFileIndex }));
+  }
+
+  log(msg) {
+    const filePath = this._getFilePath(this.currentFileIndex);
+    const logLine = `[${new Date().toISOString()}] ${msg}\n`;
+
+    let currentSize = 0;
+    try {
+      currentSize = statSync(filePath).size;
+    } catch (e) {
+      // File may not exist yet
+    }
+
+    if (currentSize + Buffer.byteLength(logLine) > this.maxSizeBytes) {
+      // Switch to next file (with wraparound)
+      this.currentFileIndex = (this.currentFileIndex % this.numFiles) + 1;
+      const newFilePath = this._getFilePath(this.currentFileIndex);
+      writeFileSync(newFilePath, logLine);  // Overwrite new file
+    } else {
+      appendFileSync(filePath, logLine);
+    }
+
+    this._saveState();
+  }
+}
+
+var conciseCfg = {}
+var defaultConciseCfg = {
+  1: { maxKeys: 10, maxLength: 50 },
+  2: { maxKeys: 5, maxLength: 20 },
+  3: { maxKeys: 2, maxLength: 20 },
+}
+function getConciseConfig() {
+
+  let config = configCache
+
+  if (config?.logging?.level != "concise") return null
+  if (conciseCfg == null) return defaultConciseCfg
+  if (Object.keys(conciseCfg).length) return conciseCfg
+
+
+  if (!config?.logging?.concise || !Array.isArray(config.logging.concise)) return defaultConciseCfg
+
+  let cfg = {}
+  config.logging.concise.map((c, idx) => {
+    let level = c.depthLevel ? c.depthLevel : idx + 1
+    cfg[level] = { maxKeys: c.maxKeys || 0, maxLength: c.maxLength || 0 }
+  })
+  let levels = Object.keys(cfg).map(l => parseInt(l))
+  let maxLevel = Math.max(...levels)
+  let minLevel = Math.min(...levels)
+  let levelsSet = new Set(levels)
+
+  if (levelsSet.size != levels.length) {
+    console.log(`config.logging.concise - Logging configuration issue, contains incorrect depth levels. Ignoring concise logging config`)
+    conciseCfg = null
+    return defaultConciseCfg
+  }
+  if (minLevel != 1) {
+    console.log(`config.logging.concise - Logging configuration issue, starting depth level is not 1. Ignoring concise logging config`)
+    conciseCfg = null
+    return defaultConciseCfg
+  }
+
+  if (maxLevel != levels.length) {
+    console.log(`config.logging.concise - Logging configuration issue, missing depth levels ${maxLevel} vs ${levels.length}. Ignoring concise logging config`)
+    conciseCfg = null
+    return defaultConciseCfg
+  }
+
+  conciseCfg = cfg
+  return conciseCfg
+}
+
+export function rstrip(str, delim) {
+  const regex = new RegExp(`[${delim}]+$`, 'g')
+  return str.replace(regex, "")
+}
+
+// conciseStringify 
+export function conciseStringify(obj, {
+  depth = 1,
+  key = null,
+  visited = new WeakSet()
+} = {}) {
+
+  let cfg = getConciseConfig()
+  if (cfg == null) return "..."
+
+  let maxKeys = cfg[depth].maxKeys
+  let maxLength = cfg[depth].maxLength
+  if (key == '$error') maxLength = 500
+
+  if (obj === null || typeof obj !== 'object') {
+    if (typeof obj === 'string') {
+      return obj.length > maxLength ? rstrip(JSON.stringify(obj.slice(0, maxLength)), '"') + '..."' : JSON.stringify(obj);
+    }
+    return JSON.stringify(obj);
+  }
+
+  if (visited.has(obj)) {
+    return '"[Circular]"';
+  }
+  visited.add(obj);
+
+  if (Array.isArray(obj)) {
+    const items = obj.slice(0, maxKeys).map(item =>
+      conciseStringify(item, { depth: depth + 1, visited })
+    );
+    if (obj.length > maxKeys) items.push('"..."');
+    return `[${items.join(', ')}]`;
+  }
+
+  if (depth >= Object.keys(cfg).length) return '"[Object]"';
+
+  const keys = Object.keys(obj).slice(0, maxKeys);
+  const keyVals = keys.map(k => {
+    try {
+      return `${JSON.stringify(k)}: ${conciseStringify(obj[k], { depth: depth + 1, visited, key: k })}`;
+    } catch {
+      return `${JSON.stringify(k)}: "[Error]"`;
+    }
+  });
+
+  if (Object.keys(obj).length > maxKeys) keyVals.push('"..."');
+
+  return `{ ${keyVals.join(', ')} }`;
+}
+

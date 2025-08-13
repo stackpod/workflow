@@ -69,19 +69,40 @@ export const abortAction = (state, locals, traversals) => {
   let action = locals.action
   state.aborted = true
   locals.aborted = true
-  dblog(locals, `${locals.l2s(2)}DEBUG: Action (${cy(getActionType(action))}) User Aborted execution for ${cm(locals.workflowName)}->${cm(action.name)}`, action.abort ? cr(action.abort) : cr("Aborted"))
+  dblog(locals, `${locals.l2s(2)}DEBUG: Action (${cy(getActionType(action))}) User Aborted execution for ${cm(locals.workflowName)}->${cm(action.name)} ${cr(action.abort)}`)
 
   return Box.Err(action.abort || "User Aborted")
+}
+
+export const errorAction = (state, locals, traversals) => {
+  let action = locals.action
+  let box = Box.Ok()
+  let { act } = identifyExpression(action.error)
+  if (typeof action.error === "object" && act === "none") {
+    let obj = {}
+    Object.entries({ error: action.error }).map(([key, value]) => {
+      box = box.chain(() => {
+        let v = execExpression(key, value, state, locals, traversals)
+        obj[key] = v
+      })
+    })
+    box = box.map(() => obj)
+  }
+  else {
+    box = box.chain(() => execExpression("action.error", action.error, state, locals, traversals))
+  }
+  return box.chain(ret => {
+    dblog(locals, `${locals.l2s(2)}DEBUG: Action (${cy(getActionType(action))}) User Error action for ${cm(locals.workflowName)}->${cm(action.name)} ${cr(JSON.stringify(ret))}`)
+    return Box.Err(ret)
+  })
 }
 
 export const loggerAction = (state, locals, traversals) => {
   let action = locals.action
   let box = Box.Ok()
-  Object.entries({ logger: action.logger }).map(([key, value]) => {
-    box = box.chain(() => execExpression(key, value, state, locals, traversals))
-  })
+  box = box.chain(() => execExpression("null", action.logger, state, locals, traversals))
   return box.map(ret => {
-    dblog(locals, `${locals.l2s(2)}${cy("LOGGER:")} for "${cm(locals.workflowName)}->${cm(action.name)}" --> ${ret}`)
+    dblog(locals, `${locals.l2s(2)}${cy("LOGGER:")} for "${cm(locals.workflowName)}->${cm(action.name)}" --> ${cy(JSON.stringify(ret))}`)
     return ret
   })
 }

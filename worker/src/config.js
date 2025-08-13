@@ -6,9 +6,11 @@ import yaml from "js-yaml"
 import path from "node:path"
 import Ajv2020 from "ajv/dist/2020.js"
 
+export var configCache = null
 
 export const loadConfig = (filename, opts = {}) => {
 
+  opts.ignoreErrors = false
   let schema
   const __dirname = path.dirname(new URL(import.meta.url).pathname)
   const schemaFile = path.join(__dirname, "./lib/config_schema.yaml")
@@ -52,6 +54,10 @@ export const loadConfig = (filename, opts = {}) => {
     .traverse(async cfg => await _readFile(cfg.filename), opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
     .traverse(parseYaml, opts.ignoreErrors !== false ? Box.TraverseAllOk : Box.TraverseAll, Box.TraverseParallel)
     .chain(mergeConfigs)
+    .map(cfg => {
+      configCache = cfg
+      return cfg
+    })
 }
 
 

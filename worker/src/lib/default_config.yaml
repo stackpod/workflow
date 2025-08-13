@@ -8,5 +8,17 @@ expressions:
     - import sys, os, json
     - import Bunch
     install: []
+logging:
+  level: concise
+  concise:
+  - depthLevel: 1
+    maxKeys: 10
+    maxLength: 50
+  - depthLevel: 2
+    maxKeys: 5
+    maxLength: 20
+  - depthLevel: 3
+    maxKeys: 2
+    maxLength: 20
 
 

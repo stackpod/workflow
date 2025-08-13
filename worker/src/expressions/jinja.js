@@ -2,7 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import nunjucks from "nunjucks"
 import chalk from "chalk"
-import { dblog } from "../utils.js"
+import { conciseStringify, dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -28,8 +28,8 @@ export const evalJinja = (key, value, state, locals, traversals) => {
   let workflowName = locals.workflowName
   let action = locals.action
 
-  const logresult = (res) => {
-    dblog(locals, `${locals.l2s(4)}DEBUG Jinja Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${cy(JSON.stringify(res))}`)
+  const logresult = (err) => (res) => {
+    dblog(locals, `${locals.l2s(4)}DEBUG Jinja Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${err ? cr(res) : cy(conciseStringify(res))}`)
     return res
   }
 
@@ -50,21 +50,21 @@ export const evalJinja = (key, value, state, locals, traversals) => {
   catch (err) {
     if (R.is(Object, value) && value.default) return Box.Ok(value.default)
     return Box.Err(`ERROR parsing Jinja template. Workflow: ${workflowName} Action:${action?.name || "noname"} Key:${key} Expr:${expression} Error:${err.message}`)
-      .bimap(logresult, logresult)
+      .bimap(logresult(true), logresult(false))
   }
 
   if (R.is(Object, value) && value.jsonParse) {
     try {
       let jres = JSON.parse(res)
       return Box.Ok(jres)
-        .map(logresult)
+        .map(logresult(false))
     }
     catch (err) {
       if (value.default) return Box.Ok(value.default)
       return Box.Err(`ERROR parsing JSON string from Jinja response. Workflow: ${workflowName} Action:${action?.name || "noname"} Key:${key} Expr:${value} res:${res} Error:${err.message}`)
-        .bimap(logresult, logresult)
+        .bimap(logresult(true), logresult(false))
     }
   }
   return Box.Ok(res)
-    .map(logresult)
+    .map(logresult(false))
 }

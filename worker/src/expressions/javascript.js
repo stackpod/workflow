@@ -2,7 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import chalk from "chalk"
 import vm from "node:vm"
-import { safeJsonParse, dblog } from "../utils.js"
+import { safeJsonParse, dblog, conciseStringify } from "../utils.js"
 import Module from "node:module"
 const require = Module.createRequire(import.meta.url)
 
@@ -17,7 +17,7 @@ export const evalJavascript = (key, value, state, locals, traversals) => {
   let action = locals.action
 
   const logresult = (err) => (res) => {
-    dblog(locals, `${locals.l2s(4)}DEBUG js expr Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
+    dblog(locals, `${locals.l2s(4)}DEBUG js expr Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${err ? cr(res) : cy(conciseStringify(res))}`)
     return res
   }
 
@@ -55,7 +55,7 @@ export const evalJavascript = (key, value, state, locals, traversals) => {
   catch (err) {
     if (R.is(Object, value) && value.default) {
       return Box.Ok(value.default)
-        .map(logresult())
+        .map(logresult(false))
     }
     else {
       return Box.Err(`ERROR parsing js template. Workflow: ${workflowName} Action:${action?.name || "noname"} Key:${key} Expr:${expression} Error:${err.message}`)
@@ -72,6 +72,6 @@ export const evalJavascript = (key, value, state, locals, traversals) => {
       .bimap(logresult(true), logresult(false))
   }
   return Box.Ok(res)
-    .map(logresult())
+    .map(logresult(false))
 
 }

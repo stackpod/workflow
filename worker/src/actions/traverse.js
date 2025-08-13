@@ -2,7 +2,7 @@ import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import { execActions, execExpression, execute } from "../execute.js"
 import chalk from "chalk"
-import { dblog } from "../utils.js"
+import { conciseStringify, dblog } from "../utils.js"
 
 const cm = chalk.magenta
 const cy = chalk.yellow
@@ -20,7 +20,7 @@ export const _traverseAction = async (state, locals, traversals) => {
   let action = locals.action
 
   const logresult = (err) => (res) => {
-    dblog(locals, `${locals.l2s(4)}DEBUG Traverse Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Result:${err ? cr(res) : cy(JSON.stringify(res))}`, res)
+    dblog(locals, `${locals.l2s(4)}DEBUG Traverse Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Result:${err ? cr(res) : cy(conciseStringify(res))}`, res)
     return res
   }
 

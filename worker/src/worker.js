@@ -1,11 +1,14 @@
 import { Command, Option } from "commander"
 import { Box } from "@stackpod/box"
 import chalk from "chalk"
-import { execute, runningWorkflows } from "./execute.js"
+import { endAndRemove, execute, runningWorkflows } from "./execute.js"
 import { EventEmitter } from "events"
 import express from "express"
-import { getExecId } from "./utils.js"
+import { conciseStringify, getExecId } from "./utils.js"
+import { default as crocks } from "crocks"
+const { isFunction } = crocks
 import { envConfig } from "./lib/dbindex.js"
+import { loadConfig } from "./config.js"
 
 const program = new Command()
 program
@@ -37,9 +40,8 @@ EventEmitter.defaultMaxListeners = Infinity
 Error.stackTraceLimit = Infinity
 // Box.debug = true
 
-const execWf = async (workflow, execId, wargs = {}) => {
-  console.log(chalk.blue(`${workflow} - initiated from api`))
-  let b = await Box()
+const execWf = (workflow, execId, wargs = {}) => {
+  let b = Box()
     .map(() => console.log(chalk.blue(`${workflow} start`)))
     .chain(() => {
       try {
@@ -49,15 +51,22 @@ const execWf = async (workflow, execId, wargs = {}) => {
         return Box.Err(`Error starting workflow ${workflow} with execId ${execId} ${err.message}`)
       }
     })
-    .runPromise()
-  console.log(chalk.blue(`${workflow} - Outcome -> `) + (Box.isOk(b) ? chalk.blue(JSON.stringify(b.toValue())) : chalk.red(b.toValue())))
+    .bimap(
+      (ret) => console.log(chalk.blue(`${execId} - Outcome -> `) + chalk.red(ret)),
+      (ret) => console.log(chalk.blue(`${execId} - Outcome -> `) + chalk.blue(conciseStringify(ret))
+      )
+    )
+  // console.log(chalk.blue(`${workflow} - Outcome -> `) + (Box.isOk(b) ? chalk.blue(JSON.stringify(b.toValue())) : chalk.red(b.toValue())))
   return b
 }
 
+let localExecId = 1
 if (options.workflows) {
+  let cancelFn = null
+  localExecId += 1
   let box = await Box(options.workflows)
-    .traverse(wf => execWf(wf), Box.TraverseAllSettled, Box.TraverseSeries)
-    .runPromise()
+    .traverse(wf => execWf(wf, localExecId), Box.TraverseAllSettled, Box.TraverseSeries)
+    .runPromise(undefined, Box.pairToBox, (cancel) => cancelFn = cancel)
 
   if (Box.isErr(box)) console.log(box.inspect())
   process.exit(1)
@@ -68,37 +77,43 @@ app.use(express.urlencoded({ extended: false }))
 app.use(express.json())
 const port = options.listen || 3000
 const MAX_EXEC_WORKFLOWS = 200
-const currentExecs = []
+const cancelFunctions = {}
 
 app.get("/worker/workflow/exec/running", async (req, res) => {
   res.json({ status: "ok", running: runningWorkflows })
 })
 
+// Run a workflow
 app.post("/worker/workflow/exec/run/:workflowId", async (req, res) => {
   try {
     let workflowId = req.params.workflowId
 
-    if (currentExecs.length >= MAX_EXEC_WORKFLOWS)
+    if (Object.keys(runningWorkflows).length >= MAX_EXEC_WORKFLOWS)
       return res.status(500).send(`Max concurrent workflows execution exceeded, currentWorkflows:${currentWorkflows.length}`)
 
     let execId = getExecId("api", workflowId)
-
-    currentExecs.push(execId)
 
     const wargs = req.body
 
     let box = Box(workflowId)
       .chain(wf => execWf(wf, execId, wargs))
-      .bimap(
-        (ret) => { currentExecs.shift(); return ret },
-        (ret) => { currentExecs.shift(); return ret },
-      )
 
-    if (req.query.asynch) {
+    if (req.query.asynch === true || req.query.asynch === "yes" || req.query.asynch === "y" || req.query.asynch === "true") {
       box
-        .runPromise()
-        .then(res => console.log(`ExecId - ${execId} completed successfully with res:${res}`))
-        .catch(err => console.log(`ExecId - ${execId} failed with errors ${err}`))
+        .runPromise(undefined, Box.pairToBox, (cancelFn) => cancelFunctions[execId] = cancelFn)
+        .then(res => {
+          console.log(`ExecId - ${execId} completed successfully with res:${conciseStringify(res)}`)
+        })
+        .catch(err => {
+          console.log(`ExecId - ${execId} failed with errors ${err}`)
+        })
+        .finally(async () => {
+          if (execId in cancelFunctions) delete cancelFunctions[execId]
+          if (execId in runningWorkflows) {
+            await endAndRemove(execId, true, "possibly got cancelled")
+            console.log(`ExecId - ${execId} possibly got cancelled`)
+          }
+        })
       return res.json({ status: "ok", async: true, execId: execId, message: `To get the status, check with /workflow/exec/status/${execId}` })
     }
     else {
@@ -107,12 +122,31 @@ app.post("/worker/workflow/exec/run/:workflowId", async (req, res) => {
           err => res.status(500).send({ status: "error", execId: execId, error: err }),
           ok => res.json({ status: "ok", execId: execId, result: ok })
         )
-        .runPromise()
+        .runPromise(undefined, Box.pairToBox, (cancelFn) => cancelFunctions[execId] = cancelFn)
+        .finally(async () => {
+          if (execId in cancelFunctions) delete cancelFunctions[execId]
+          if (execId in runningWorkflows) {
+            await endAndRemove(execId, true, "possibly got cancelled")
+            console.log(`ExecId - ${execId} possibly got cancelled`)
+          }
+        })
     }
   }
   catch (err) {
     console.log(`ERROR while executing workflow ${req.params.workflowId}, error:`, err)
     res.status(500).send(`ERROR: while executing workflow ${req.params.workflowId} error:${err.toString()}`)
+  }
+})
+
+// Cancel a workflow
+app.post("/worker/workflow/exec/cancel/:execId", async (req, res) => {
+  let execId = req.params.execId
+  if (!cancelFunctions[execId])
+    return res.status(404).send(`ERROR: ExecId ${req.params.execId} not present in this worker`)
+
+  if (isFunction(cancelFunctions[execId])) {
+    cancelFunctions[execId]()
+    return res.status(200).json({ status: "ok", message: `ExecId ${req.params.execId} successfully cancelled. Please wait few secs for the execution to actually stop` })
   }
 })
 

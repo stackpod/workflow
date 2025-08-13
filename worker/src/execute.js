@@ -14,9 +14,9 @@ import { endAction } from "./actions/end.js"
 import chalk from "chalk"
 import { conditionalsAction } from "./actions/conditionals.js"
 import { traverseAction } from "./actions/traverse.js"
-import { abortAction, loggerAction, returnAction, setloopvarsAction, setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
+import { abortAction, errorAction, loggerAction, returnAction, setloopvarsAction, setstateAction, setvarsAction, sleepAction, workflowAction } from "./actions/actions.js"
 import { coreWorkflows } from "./core/index.js"
-import { createLocals, dblog, endWorkflow } from "./utils.js"
+import { conciseStringify, createLocals, dblog, endWorkflow } from "./utils.js"
 import { loadConfig } from "./config.js"
 import { pythonAction } from "./actions/python.js"
 import { jsAction } from "./actions/javascript.js"
@@ -72,6 +72,13 @@ const initState = (st, wfs) => ({
 
 export const runningWorkflows = {}
 
+export const endAndRemove = async (execId, err, ret) => {
+
+  delete runningWorkflows[execId]
+  await endWorkflow(execId, err ? "Error" : "Ok", err ? "" : ret, err ? ret : "")
+  return ret
+}
+
 export const execute = (workflowName, execId, opts = {}, args = {}) => {
   return loadWorkflows(opts.workflowsPath || workflowsDir, { ignoreErrors: false })
     .chain(wfs => {
@@ -95,19 +102,15 @@ export const execute = (workflowName, execId, opts = {}, args = {}) => {
       return executeWorkflow(workflowName, execId, args, 1)
     })
     .bimap(
-      (x) => { console.log(`After executeWorkflow ${workflowName} ${execId} Err ${x}`); return x },
+      (x) => { console.log(`After executeWorkflow ${workflowName} ${execId} Err ${conciseStringify(x)}`); return x },
       (x) => { console.log(`After executeWorkflow ${workflowName} ${execId} Ok`); return x },
     )
     .bimap(
       async (ret) => {
-        delete runningWorkflows[execId]
-        await endWorkflow(execId, "Error", "", ret)
-        return ret
+        return await endAndRemove(execId, true, ret)
       },
       async (ret) => {
-        delete runningWorkflows[execId]
-        await endWorkflow(execId, "Ok", ret, "")
-        return ret
+        return await endAndRemove(execId, false, ret)
       }
     )
 }
@@ -125,8 +128,8 @@ export const executeWorkflow = (workflowName, execId, args = {}, level = 1) => {
     return res
   }
 
-  console.log("executeWorkflow", `Start for ${workflowName}`, "locals", locals, "args", args)
-  dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} Start for ${cm(workflowName)} args:${cm(JSON.stringify(args))}`)
+  console.log("executeWorkflow", `Start for ${workflowName}`, "locals", "args", args)
+  dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} Start for ${cm(workflowName)} args:${cm(conciseStringify(args))}`)
 
   return Box.getState()
     .map(_state => { state = _state; return undefined })
@@ -138,7 +141,7 @@ export const executeWorkflow = (workflowName, execId, args = {}, level = 1) => {
     })
     .chain(() => handleResult(state, locals, traversals))  // TODO handle cleanup for errors
     .bimap(ret => {
-      dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} End (${cr("Err")}) for ${locals.workflowName} Err:${cr(ret)}`)
+      dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} End (${cr("Err")}) for ${locals.workflowName} Err:${cr(conciseStringify(ret))}`)
       return clearWorkflowState(ret)
     }, ret => {
       dblog(locals, `${locals.l2s()}DEBUG: ${cy("Workflow")} End (${cg("Ok")}) for ${locals.workflowName}`)
@@ -209,7 +212,7 @@ export const executeAction = (state, locals, traversals) => {
 
   const actionEnd = (ret, err) => {
     dblog(locals, `${locals.l2s(2)}DEBUG: Action <${cy(getActionType(action))}> End <${err ? cr("Err") : cg("Ok")}> ` +
-      `for ${cm(locals.workflowName)}->${cm(action.name)} Vars:${cm(JSON.stringify({ ...locals.vars, ...traversals }))}`)
+      `for ${cm(locals.workflowName)}->${cm(action.name)} Vars:${cm(conciseStringify({ ...locals.vars, ...traversals }))}`)
     return ret
   }
 
@@ -251,6 +254,10 @@ export const executeAction = (state, locals, traversals) => {
   }
   else if (action.abort) {
     return abortAction(state, locals, traversals)
+      .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
+  }
+  else if (action.error) {
+    return errorAction(state, locals, traversals)
       .bimap(ret => actionEnd(ret, true), ret => actionEnd(ret, false))
   }
   else if (action.end) {

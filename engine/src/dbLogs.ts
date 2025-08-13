@@ -108,13 +108,11 @@ export const getWorkflowStatus = async (execId: string, logs: string | undefined
   if (colors === undefined || colors === null || colors === "") colors = "no"
   const isStringTrue = (s: string) => (s.toLowerCase() === "no" || s.toLowerCase() === "false" || s === "0" || s.length === 0 || s === undefined || s === null) ? false : true
 
-  console.log("start", Date.now())
   var execIds = {}
   try {
     execIds = await getAllExecIds()
   }
   catch (err) { }
-  console.log("end", Date.now())
 
   return {
     status: "ok",
@@ -149,7 +147,7 @@ export const getWorkflowStatuses = async ({ start, end, workflowId, status, limi
     q1 = { range: { startedAt: { gte: start, } } }
   else if (end) q1 = { range: { startedAt: { lte: end } } }
 
-  queries.push(q1)
+  if (Object.keys(q1).length) queries.push(q1)
   if (workflowId) {
     queries.push({
       match: {
@@ -171,11 +169,11 @@ export const getWorkflowStatuses = async ({ start, end, workflowId, status, limi
       must: queries
     }
   }
-  console.log("query", query)
   try {
     var ret = await getAllRecords(esclient, envConfig.elasticsearch.logsIndex + "-*", query, limit)
   }
   catch (err: unknown) {
+    console.log("queries", query, "err", err)
     return { status: "error", error: (<Error>err).message, stack: (<Error>err).stack }
   }
 

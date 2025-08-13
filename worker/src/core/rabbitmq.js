@@ -198,7 +198,7 @@ export const rabbitMqRecv = (execId, args, level) => {
     callback(msg).then().catch()
   }
 
-  const recvFromQueue = async () => {
+  const recvFromQueue = async (_x, isCancelled) => {
 
     let [err, profile] = constructProfile(state, args)
     if (err) return Box.Err(err)
@@ -227,13 +227,13 @@ export const rabbitMqRecv = (execId, args, level) => {
       return Box.Err(`ERROR: core.rabbitmq.recv Unable to setup consumer, ${ErrorToString(err)}`)
     }
     while (true) {
-      if (cancelled) {
+      if (cancelled || (isFunction(isCancelled) && isCancelled())) {
         if (!closed) {
           channel.close()
           connection.close()
         }
         closed = true
-        return Box.Ok("channel and connection closed")
+        return Box.Err("channel and connection closed due to cancellation request")
       }
       await sleep(10000)
     }
@@ -241,7 +241,7 @@ export const rabbitMqRecv = (execId, args, level) => {
 
   return Box.getState()
     .map(_state => { state = _state; return undefined })
-    .chain(recvFromQueue)
+    .chainWithIsCancelled(recvFromQueue)
     .bimap(ErrorToString, R.identity)
 }
 
@@ -340,7 +340,7 @@ export const rabbitMqSubscribe = (execId, args, level) => {
           connection.close()
         }
         closed = true
-        return Box.Ok("channel and connection closed")
+        return Box.Err("channel and connection closed due to cancellation request")
       }
       await sleep(10000)
     }

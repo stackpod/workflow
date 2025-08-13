@@ -18,7 +18,16 @@ export const conditionalsAction = (state, locals, traversals) => {
     return res
   }
 
-  const evalTruthy = (ret) => ret === "true" || ret === true ? true : false
+  const evalTruthy = (strict, ret) => {
+    if (strict) return ret === "true" || ret === true ? true : false
+    if (ret === true ||
+      (typeof ret === 'number' && ret > 0) ||
+      (typeof ret === 'string' && ret.length > 0) ||
+      (Array.isArray(ret) && ret.length > 0) ||
+      (typeof ret === 'object' && Object.keys(ret).length > 0))
+      return true
+    return false
+  }
 
   let resolved = false
   let box = Box.Ok()
@@ -32,7 +41,7 @@ export const conditionalsAction = (state, locals, traversals) => {
           .bichain(
             ret => { resolved = true; return Box.Err(ret) },
             ret => {
-              if (evalTruthy(ret)) {
+              if (evalTruthy(conditional.strict, ret)) {
                 resolved = true
                 return execActions(conditional.actions, state, locals, traversals)
               }

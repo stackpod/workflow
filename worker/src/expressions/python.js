@@ -1,7 +1,7 @@
 import { Box } from "@stackpod/box"
 import * as R from "ramda"
 import chalk from "chalk"
-import { safeJsonParse, safeSpawn, dblog } from "../utils.js"
+import { safeJsonParse, safeSpawn, dblog, conciseStringify } from "../utils.js"
 import path from "node:path"
 
 const cm = chalk.magenta
@@ -14,7 +14,7 @@ export const evalPython = (key, value, state, locals, traversals) => {
   let action = locals.action
 
   const logresult = (err) => (res) => {
-    dblog(locals, `${locals.l2s(4)}DEBUG python Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${err ? cr(res) : cy(JSON.stringify(res))}`)
+    dblog(locals, `${locals.l2s(4)}DEBUG python Workflow:${cm(workflowName)} Action:${cm(action?.name || "noname")} Key:${cm(key)} Result:${err ? cr(res) : cy(conciseStringify(res))}`)
     return res
   }
 

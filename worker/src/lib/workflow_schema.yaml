@@ -22,7 +22,6 @@ properties:
         actions:
           $ref: "#/$defs/actions"
       required:
-      - name
       - actions
 required:
   - workflows
@@ -38,7 +37,7 @@ $defs:
         name:
           description: Name of this specific action. Optional.
           type: string
-      required: [ "name" ]
+      # required: [ "name" ]
       oneOf:
       - type: object
         properties:
@@ -79,7 +78,10 @@ $defs:
         required: [ "conditionals" ]
       - type: object
         properties:
-          error: { "type": "object" }
+          error:
+            anyOf:
+            - type: object
+            - type: string
         required: [ "error" ]
       - type: object
         properties:

@@ -1,3 +1,4 @@
+import { not } from "ajv/dist/compile/codegen"
 import { getWorkflowStatuses } from "./dbLogs"
 import { getWorkflows } from "./dbWorkflows"
 
@@ -71,6 +72,36 @@ export const setupCheckWorker = () => {
   setInterval(checkWorker, 10000)
 }
 
+export const cancelWorkflowExec = async (execId: string) => {
+  let allIds = await Promise.allSettled(Object.keys(workerList).map(w => {
+    let p = fetch(workerList[w].url + "/worker/workflow/exec/running")
+      .then(resp => resp.json())
+      .then(resp => {
+        return { worker: w, resp: resp }
+      })
+    return p
+  }))
+  let worker = null
+  allIds.forEach((ret: PromiseSettledResult<any>) => {
+
+    if (ret.status === "fulfilled") {
+      let { worker: w, resp }: { worker: string, resp: Record<string, any> } = ret.value
+      if (execId in resp.running) {
+        worker = w
+      }
+    }
+  })
+
+  // If worker is not setup
+  if (!worker) return { status: "error", error: `Unable to locate a workflow with this execId ${execId}` }
+
+  let resp = await fetch(new Request(workerList[worker].url + `/worker/workflow/exec/cancel/${execId}`), { method: "POST", headers: { "content-type": "application/json" }, body: '{}' })
+  // @ts-ignore
+  let data = await resp.bytes()
+  let j = JSON.parse(Buffer.from(data).toString())
+  return j
+}
+
 export const startWorkflowExec = async (workflowId: string, args: Record<string, any>, asynch: string | undefined) => {
 
   let workers = Object.keys(workerList).filter(worker => workerList[worker].status === "ok")
@@ -142,10 +173,12 @@ export const startStartupWorkflows = async () => {
   }
 
   try {
-    console.log("Not running startup Workflow Ids, starting them now", notRunningStartupWorkflowIds)
+    if (notRunningStartupWorkflowIds.length) {
+      console.log("Not running startup Workflow Ids, starting them now", notRunningStartupWorkflowIds)
 
-    let runret = await Promise.all(notRunningStartupWorkflowIds.map((wf: string) => startWorkflowExec(wf, {}, "true")))
-    console.log(`Run status of startup Workflows`, runret)
+      let runret = await Promise.all(notRunningStartupWorkflowIds.map((wf: string) => startWorkflowExec(wf, {}, "true")))
+      console.log(`Run status of startup Workflows`, runret)
+    }
   }
   catch (err) {
     console.log(`Unable to startup workflows`, err)

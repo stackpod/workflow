@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia"
 import { swagger } from "@elysiajs/swagger"
 import { insertOrUpdateWorkflow, getWorkflow, getWorkflows, deleteWorkflow, insertYamlWorkflows } from "./dbWorkflows";
 import { getWorkflowStatus, getWorkflowStatuses } from "./dbLogs";
-import { registerWorker, setupCheckWorker, setupStartupWorkflows, startWorkflowExec, getWorkerList } from "./worker";
+import { registerWorker, setupCheckWorker, setupStartupWorkflows, startWorkflowExec, getWorkerList, cancelWorkflowExec } from "./worker";
 
 setupCheckWorker()
 setupStartupWorkflows()
@@ -18,7 +18,7 @@ const app = new Elysia({ normalize: true })
     documentation: {
       info: {
         title: "Workflow Engine Documentation",
-        version: "0.24.0"
+        version: "0.25.0"
       },
       tags: [
         { name: "Exec", description: "Workflow Execution APIs" },
@@ -170,13 +170,13 @@ const app = new Elysia({ normalize: true })
       })
 
     })
-  .put("/workflow/exec/:execId",
-    ({ body: { action }, }) => ({ status: "ok", error: `${action}` }),
+  .put("/workflow/exec/cancel/:execId",
+    async ({ params: { execId } }) => {
+      return await cancelWorkflowExec(execId)
+    },
     {
-      body: t.Object({
-        action: t.Union([
-          t.Literal("cancel")
-        ])
+      params: t.Object({
+        execId: t.String(),
       }),
       detail: {
         summary: "Cancel a workflow execution",
@@ -185,17 +185,8 @@ const app = new Elysia({ normalize: true })
       },
       response: t.Object({
         status: t.String(),
+        message: t.Optional(t.String()),
         error: t.Optional(t.String()),
-        execution: t.Optional(
-          t.Object({
-            execId: t.String(),
-            executionTime: t.Date(),
-            workflowId: t.String(),
-            status: t.String(),
-            result: t.String(),
-            logs: t.Optional(t.String())
-          })
-        )
       })
 
     })

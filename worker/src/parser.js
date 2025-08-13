@@ -118,7 +118,7 @@ export const loadWorkflows = (pathname, opts = {}) => {
       }
       if (opts.ignoreErrors === false && wfs[w.name]) {
         // err += `Workflow ${w.name} from database already present and is a duplicate\n`
-        console.log(`Workflow ${w.name} from database already present and is a duplicate. Ignoring it\n`)
+        // console.log(`Workflow ${w.name} from database already present and is a duplicate. Ignoring it\n`)
         return
       }
       wfs[w.name] = w
