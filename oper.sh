@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ENGINE=http://localhost:3000
+ENGINE=http://localhost:3010
 
 if [[ $1 == "upload" ]]; then
   file=$2
@@ -19,7 +19,7 @@ fi
 
 if [[ $1 == "run" ]]; then
   wf=$2
-  OUT=$(curl -s -XPOST ${ENGINE}/workflow/exec/run/${wf}?asynch=yes -d '{"args":{}}' -H "Content-type: application/json")
+  OUT=$(curl -s -XPOST ${ENGINE}/workflow/exec/run/${wf}?asynch=no -d '{"args":{}}' -H "Content-type: application/json")
   echo $OUT
   EXECID=$(echo "$OUT" | jq -r .execId)
   export EXECID
@@ -44,5 +44,10 @@ fi
 
 if [[ $1 == "cancel" ]]; then
   curl -s -XPUT ${ENGINE}/workflow/exec/cancel/${EXECID}
+  echo
+fi
+
+if [[ $1 == "workers" ]]; then
+  curl -s -XGET ${ENGINE}/worker/workers
   echo
 fi

@@ -207,6 +207,9 @@ export const executeAction = (state, locals, traversals) => {
   let action = locals.action
 
   if (locals.ended || state.aborted) return Box()
+  if (action.alt) {
+    return Box.Ok("Ok")
+  }
 
   dblog(locals, `${locals.l2s(2)}DEBUG: Action <${cy(getActionType(action))}> Start for ${cm(locals.workflowName)}->${cm(action.name)}`)
 

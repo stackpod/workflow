@@ -3,12 +3,16 @@
 DIR=$(dirname -- "${BASH_SOURCE[0]}")
 DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
-VERSION=0.24.0
+VERSION=0.26.0
 
 echo "DIR is $DIR, ABSDIR=$ABSDIR"
 
 cd $DIR/engine
 bun build -e @elastic/elasticsearch -e ajv src/dbindex.ts -e js-yaml --target node --outfile ../worker/src/lib/dbindex.js
+
+if [[ $1 == "justdb" ]]; then
+  exit
+fi
 
 cd $DIR
 

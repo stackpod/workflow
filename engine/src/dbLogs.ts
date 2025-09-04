@@ -22,6 +22,8 @@ const getLogIndex = (dt: Date) => {
 
 export const startWorkflowExec = async (workflowId: string, execId: string, args: Record<string, any>, datetime: Date) => {
 
+  if (!envConfig.elasticsearch.url) return
+
   if (!esclient) esclient = esConnect(envConfig)
   let ret
   let doc = {
@@ -48,6 +50,7 @@ export const startWorkflowExec = async (workflowId: string, execId: string, args
 }
 
 export const endWorkflowExec = async (execId: string, status: any, result: any, error: any, endTime: any) => {
+  if (!envConfig.elasticsearch.url) return
   if (!esclient) esclient = esConnect(envConfig)
   let ret = await searchIdRecord2(esclient, envConfig.elasticsearch.logsIndex + "-*", execId)
   if (!ret) return { status: "error", error: `endWorkflowExec: Unable to get record for execId:${execId} status:${status} result:${result} error:${error}` }
@@ -73,6 +76,7 @@ export const endWorkflowExec = async (execId: string, status: any, result: any, 
 
 export const addWorkflowLogs = async (execId: string, log: Record<string, any>) => {
 
+  if (!envConfig.elasticsearch.url) return
   if (!esclient) esclient = esConnect(envConfig)
   let ret = await searchIdRecord2(esclient, envConfig.elasticsearch.logsIndex + "-*", execId)
   if (!ret) return { status: "error", error: `addWorkflowLogs: Unable to get record for execId:${execId}, log=${log}` }
